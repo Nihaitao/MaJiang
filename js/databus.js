@@ -27,7 +27,7 @@ export default class DataBus {
   /**
    * 获取麻将能运动的轨迹
    */
-  getPathOfParticle(majiang) {
+  getPathOfParticle(majiang) {//需要修改，麻将位置会变化 https://www.processon.com/diagraming/5bd97282e4b0844e0bc08a6b
     majiang.movePath = []
     const hiddenArr = this.mjArr.filter(item => {
       return !item.visible
