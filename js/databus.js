@@ -18,14 +18,45 @@ export default class DataBus {
   }
 
   reset() {
-    this.frame = 0
-    this.score = 0
-    this.bullets = []
-    this.enemys = []
-    this.animations = []
-    this.gameOver = false
+    this.mjArr = []
+    this.currentId = 0
+    this.passId = 0
+    this.hidden = false
   }
 
+  /**
+   * 获取麻将能运动的轨迹
+   */
+  getPathOfParticle(majiang) {
+    majiang.movePath = []
+    const hiddenArr = this.mjArr.filter(item => {
+      return !item.visible
+    })
+    if (hiddenArr.length > 0) {
+      hiddenArr.forEach(item => {
+        if (item.row === majiang.row && item.col > majiang.col) {
+          majiang.movePath.push({
+            'left': item.col
+          })
+        } else if (item.row === majiang.row && item.col < majiang.col) {
+          majiang.movePath.push({
+            'right': item.col
+          })
+        } else if (item.row > majiang.row && item.col === majiang.col) {
+          majiang.movePath.push({
+            'up': item.col
+          })
+        } else if (item.row < majiang.row && item.col === majiang.col) {
+          majiang.movePath.push({
+            'down': item.col
+          })
+        }
+      })
+
+
+      console.log(majiang)
+    }
+  }
   /**
    * 回收敌人，进入对象池
    * 此后不进入帧循环

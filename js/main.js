@@ -23,7 +23,6 @@ export default class Main {
     )
     this.bindLoop = this.loop.bind(this)
     let count = 108
-    this.mjArr = []
 
     while (count > 0) {
       let index = Math.floor(Math.random() * indexArr.length)
@@ -32,9 +31,10 @@ export default class Main {
       if (indexArr[index].count === 0){
         indexArr.splice(index,1)
       }
-      this.mjArr.push(new MaJiang({value,count}))
+      databus.mjArr.push(new MaJiang({value,count}))
       count--
     }
+    console.log(databus.mjArr)
     // 清除上一局的动画
     window.cancelAnimationFrame(this.aniId);
     this.aniId = window.requestAnimationFrame(
@@ -51,16 +51,14 @@ export default class Main {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.fillStyle = 'green'
     ctx.fillRect(0, 0, screenWidth, screenHeight)
-    this.mjArr.forEach(item=>{
+    databus.mjArr.forEach(item=>{
       item.drawToCanvas(ctx)
     })
-     
-
   }
 
   // 实现游戏帧循环
   loop() {
-    databus.frame++
+    // databus.frame++
 
       // this.update()
       this.render()
