@@ -22,8 +22,10 @@ export default class MaJiang extends Sprite {
     super(PLAYER_IMG_SRC, PLAYER_WIDTH, PLAYER_HEIGHT)
     this.col = params.count % 18
     this.row = parseInt((108 - params.count) / 18)
-    this.x = CheckerboardWidth - this.width * this.col * PLAYER_WIDTH_RATE
-    this.y = CheckerboardHeight - this.height * this.row * PLAYER_HEIGHT_RATE
+    this.x = CheckerboardWidth - this.width * (17 - this.col) * PLAYER_WIDTH_RATE
+    this.y = CheckerboardHeight - this.height * (5 - this.row) * PLAYER_HEIGHT_RATE
+
+    databus.dyadicArr[this.row][this.col] = params.value
 
     // 用于在手指移动的时候标识手指是否已经在麻将上了
     this.touched = false
@@ -50,7 +52,7 @@ export default class MaJiang extends Sprite {
     return !!(x >= this.x - deviationX &&
       y >= this.y - deviationY &&
       x <= this.x + this.width + deviationX &&
-      y <= this.y + this.height && this.visible)
+      y <= this.y + this.height && this.visible && databus.currentMj === null)
   }
 
   /**
@@ -58,35 +60,207 @@ export default class MaJiang extends Sprite {
    * 保证手指处于麻将中间
    * 同时限定麻将的活动范围限制在棋盘中
    */
-  setAirPosAcrossFingerPosZ(x, y) {
-    if (databus.cantMove) {
-      this.x = this.ex_x
-      this.y = this.ex_y
-      databus.cantMove = false
-      return
-    }
+  setMaJiangAcrossFingerPosZ(x, y) {
     let disX = x - this.width / 2
-    let disY = y - this.height / 2
-    if (this.currentMoving === 'horizontal' || (this.currentMoving === '' && Math.abs(this.touchedx - x) >= Math.abs(this.touchedy - y))) {
-      console.log('horizontal')
+    let disY = y - this.height / 2   
+
+    if (this.currentMoving === 'left' || (this.currentMoving === '' && this.touchedx - x >= Math.abs(this.touchedy - y))) {
       disY = this.ex_y
-      this.currentMoving = 'horizontal'
-    } else if (this.currentMoving === 'vertical' || (this.currentMoving === '' && Math.abs(this.touchedx - x) < Math.abs(this.touchedy - y))) {
-      console.log('vertical')
+      disX = Math.min(disX, this.ex_x)
+      this.currentMoving = 'left'
+    } else if (this.currentMoving === 'right' || (this.currentMoving === '' && x - this.touchedx >= Math.abs(this.touchedy - y))) {
+      disY = this.ex_y
+      disX = Math.max(disX, this.ex_x)
+      this.currentMoving = 'right'
+    } else if (this.currentMoving === 'up' || (this.currentMoving === '' && Math.abs(this.touchedx - x) < this.touchedy - y)) {
       disX = this.ex_x
-      this.currentMoving = 'vertical'
+      disY = Math.min(disY, this.ex_y)
+      this.currentMoving = 'up'
+    } else if (this.currentMoving === 'down' || (this.currentMoving === '' && Math.abs(this.touchedx - x) < y - this.touchedy)) {
+      disX = this.ex_x
+      disY = Math.max(disY, this.ex_y)
+      this.currentMoving = 'down'
     }
 
-    //活动范围限制在棋盘中
-    if (disX < PLAYER_WIDTH * PLAYER_WIDTH_RATE)
-      disX = PLAYER_WIDTH * PLAYER_WIDTH_RATE
-    else if (disX > CheckerboardWidth)
-      disX = CheckerboardWidth
+    this.movePath.forEach(item => {
+      if (item.left && this.currentMoving === 'left') {
+        let _arr = item.left.split('_')
+        if (disX < this.ex_x - _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE) {
+          disX = this.ex_x - _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE
+        }
+        if (_arr[0] > 0) {
+          if (_arr[2] === 'true') {
+            if (disX == this.ex_x - _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE) {
+              databus.dyadicArr[this.row][this.col] = 0
+              databus.dyadicArr[this.row][this.col - _arr[0] * 1 - 1] = 0
+              databus.change.push({
+                'row': this.row,
+                'col': this.col,
+                'move': 'left',
+                'disabled': true,
+                'step': _arr[0] * 1 + 1
+              })
+            }
+          } else {
+            for (var i = this.col; i >= this.col - _arr[1]; i--) {
+              databus.change.push({
+                'row': this.row,
+                'col': i,
+                'move': 'left',
+                'x': disX + (i - this.col) * PLAYER_WIDTH * PLAYER_WIDTH_RATE
+              })
+            }
+          }
+        } else if (_arr[2] === 'true') {
+          databus.dyadicArr[this.row][this.col] = 0
+          databus.dyadicArr[this.row][this.col - 1] = 0
+          databus.change.push({
+            'row': this.row,
+            'col': this.col,
+            'disabled': true
+          })
+          databus.change.push({
+            'row': this.row,
+            'col': this.col - 1,
+            'disabled': true
+          })
+        }
+      }
+      if (item.right && this.currentMoving === 'right') {
+        let _arr = item.right.split('_')
+        if (disX > this.ex_x + _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE) {
+          disX = this.ex_x + _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE
+        }
+        if (_arr[0] > 0) {
+          if (_arr[2] === 'true') {
+            if (disX == this.ex_x + _arr[0] * PLAYER_WIDTH * PLAYER_WIDTH_RATE) {
+              databus.dyadicArr[this.row][this.col] = 0
+              databus.dyadicArr[this.row][this.col + _arr[0] * 1 + 1] = 0
+              databus.change.push({
+                'row': this.row,
+                'col': this.col,
+                'move': 'right',
+                'disabled': true,
+                'step': _arr[0] * 1 + 1
+              })
+            }
+          } else {
+            for (var i = this.col; i <= this.col + _arr[1] * 1; i++) {
+              databus.change.push({
+                'row': this.row,
+                'col': i,
+                'move': 'right',
+                'x': disX - (this.col - i) * PLAYER_WIDTH * PLAYER_WIDTH_RATE
+              })
+            }
+          }
+        } else if (_arr[2] === 'true') {
+          databus.dyadicArr[this.row][this.col] = 0
+          databus.dyadicArr[this.row][this.col + 1] = 0
+          databus.change.push({
+            'row': this.row,
+            'col': this.col,
+            'disabled': true
+          })
+          databus.change.push({
+            'row': this.row,
+            'col': this.col + 1,
+            'disabled': true
+          })
+        }
+      }
+      if (item.up && this.currentMoving === 'up') {
+        let _arr = item.up.split('_')
+        if (disY < this.ex_y - _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE) {
+          disY = this.ex_y - _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE
+        }
+        if (_arr[0] > 0) {
+          if (_arr[2] === 'true') {
+            if (disY == this.ex_y - _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE) {
+              databus.dyadicArr[this.row - _arr[0] * 1 - 1][this.col] = 0
+              databus.dyadicArr[this.row][this.col] = 0
+              databus.change.push({
+                'row': this.row,
+                'col': this.col,
+                'move': 'up',
+                'disabled': true,
+                'step': _arr[0] * 1 + 1
+              })
+            }
+          } else {
+            for (var i = this.row; i >= this.row - _arr[1]; i--) {
+              databus.change.push({
+                'row': i,
+                'col': this.col,
+                'move': 'up',
+                'y': disY + (i - this.row) * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE
+              })
+            }
 
-    if (disY <= CheckerboardHeight - PLAYER_HEIGHT * PLAYER_HEIGHT_RATE * 5)
-      disY = CheckerboardHeight - PLAYER_HEIGHT * PLAYER_HEIGHT_RATE * 5
-    else if (disY > CheckerboardHeight)
-      disY = CheckerboardHeight
+          }
+        } else if (_arr[2] === 'true') {
+          databus.dyadicArr[this.row][this.col] = 0
+          databus.dyadicArr[this.row - 1][this.col] = 0
+          databus.change.push({
+            'row': this.row,
+            'col': this.col,
+            'disabled': true
+          })
+          databus.change.push({
+            'row': this.row - 1,
+            'col': this.col,
+            'disabled': true
+          })
+        }
+      }
+      if (item.down && this.currentMoving === 'down') {
+        let _arr = item.down.split('_')
+        if (disY > this.ex_y + _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE) {
+          disY = this.ex_y + _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE
+        }
+        if (_arr[0] > 0) {
+          if (_arr[2] === 'true') {
+            if (disY == this.ex_y + _arr[0] * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE) {
+              databus.dyadicArr[this.row + _arr[0] * 1 + 1][this.col] = 0
+              databus.dyadicArr[this.row][this.col] = 0
+              databus.change.push({
+                'row': this.row,
+                'col': this.col,
+                'move': 'down',
+                'disabled': true,
+                'step': _arr[0] * 1 + 1
+              })
+            }
+          } else {
+            for (var i = this.row; i <= this.row + _arr[1] * 1; i++) {
+              databus.change.push({
+                'row': i,
+                'col': this.col,
+                'move': 'down',
+                'y': disY - (this.row - i) * PLAYER_HEIGHT * PLAYER_HEIGHT_RATE
+              })
+            }
+          }
+        } else if (_arr[2] === 'true') {
+          databus.dyadicArr[this.row][this.col] = 0
+          databus.dyadicArr[this.row + 1][this.col] = 0
+          databus.change.push({
+            'row': this.row,
+            'col': this.col,
+            'disabled': true
+          })
+          databus.change.push({
+            'row': this.row + 1,
+            'col': this.col,
+            'disabled': true
+          })
+        }
+      }
+    })
+    if (!databus.touchmove || (Math.abs(databus.touchmove.x - disX) < 5 && Math.abs(databus.touchmove.y - disY) < 5)) {
+      databus.touchmove = { 'x': disX, 'y': disY, 'time': Date.now() }
+    }
+    databus.resetMjArr()
 
     this.x = disX
     this.y = disY
@@ -99,20 +273,20 @@ export default class MaJiang extends Sprite {
   initEvent() {
     canvas.addEventListener('touchstart', ((e) => {
       e.preventDefault()
-      console.log('touchstart')
       let x = e.touches[0].clientX
       let y = e.touches[0].clientY
 
       //当前选中的麻将
       if (this.checkIsFingerOnAir(x, y)) {
         this.touched = true
-        
+        databus.currentMj = this
+
+        // 获取麻将移动方式
         databus.getPathOfParticle(this)
 
         // 用于判断移动方向
         this.touchedx = x
         this.touchedy = y
-        databus.currentId = this.Identification
       }
 
     }).bind(this))
@@ -123,33 +297,21 @@ export default class MaJiang extends Sprite {
       let x = e.touches[0].clientX
       let y = e.touches[0].clientY
       if (this.touched) {
-        this.setAirPosAcrossFingerPosZ(x, y)
-        if (databus.hidden) {
-          this.visible = false
-          databus.hidden = false
-        }
-      } else if (this.checkIsFingerOnAir(x, y)) {
-        if (databus.currentId === this.Identification && !databus.passId) {
-          databus.hidden = true //通知目标可以消失了
-          this.visible = false 
-          databus.currentId = 0
-          databus.passId = 0
-        } else if (databus.currentId !== 0) {
-          databus.cantMove = true
-          if (!databus.passId){
-            databus.passId = this.Identification
-          }
-        } else {
-          
-        }
+        this.setMaJiangAcrossFingerPosZ(x, y)
       }
 
     }).bind(this))
 
     canvas.addEventListener('touchend', ((e) => {
       e.preventDefault()
-      console.log('touchend')
-      databus.passId = 0
+      if (this.touched) {
+        databus.around(this)
+        // console.table(databus.dyadicArr)
+      }
+
+      if (databus.currentMj) {
+        databus.currentMj = null
+      }
       this.currentMoving = ''
       this.touched = false
       this.x = this.ex_x

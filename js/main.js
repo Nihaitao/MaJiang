@@ -22,21 +22,24 @@ export default class Main {
       this.touchHandler
     )
     this.bindLoop = this.loop.bind(this)
+    //初始化棋盘
     let count = 108
-
     while (count > 0) {
       let index = Math.floor(Math.random() * indexArr.length)
-      let value = indexArr[index].value      
-      indexArr[index].count --;
-      if (indexArr[index].count === 0){
-        indexArr.splice(index,1)
+      let value = indexArr[index].value
+      indexArr[index].count--;
+      if (indexArr[index].count === 0) {
+        indexArr.splice(index, 1)
       }
-      databus.mjArr.push(new MaJiang({value,count}))
+      databus.mjArr.push(new MaJiang({ value, count }))
       count--
     }
-    console.log(databus.mjArr)
+    databus.mjArr = databus.mjArr.reverse()
+    
     // 清除上一局的动画
     window.cancelAnimationFrame(this.aniId);
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = 'green'
     this.aniId = window.requestAnimationFrame(
       this.bindLoop,
       canvas
@@ -48,21 +51,15 @@ export default class Main {
    * 每一帧重新绘制所有的需要展示的元素
    */
   render() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = 'green'
     ctx.fillRect(0, 0, screenWidth, screenHeight)
-    databus.mjArr.forEach(item=>{
+    databus.mjArr.forEach(item => {
       item.drawToCanvas(ctx)
     })
   }
 
   // 实现游戏帧循环
   loop() {
-    // databus.frame++
-
-      // this.update()
-      this.render()
-
+    this.render()
     this.aniId = window.requestAnimationFrame(
       this.bindLoop,
       canvas
