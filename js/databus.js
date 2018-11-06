@@ -304,7 +304,7 @@ export default class DataBus {
         }
         //纵向移动，横向检查
         if (mj.currentMoving === 'up' || mj.currentMoving === 'down') {
-          const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.89)
+          const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.9)
           const moveStep = Math.round(moveY)
           if (Math.abs(moveY - moveStep) < 0.4 && moveStep > 0) {
             let leftCol = -1, rightCol = -1

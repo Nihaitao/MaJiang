@@ -10,7 +10,7 @@ let databus = new DataBus()
 const PLAYER_WIDTH = 48
 const PLAYER_HEIGHT = 48
 const PLAYER_WIDTH_RATE = 0.64 //   48/72 + 偏差 
-const PLAYER_HEIGHT_RATE = 0.89 //   64/72 + 偏差
+const PLAYER_HEIGHT_RATE = 0.9 //   64/72 + 偏差
 
 // 棋盘大小
 const CheckerboardWidth = PLAYER_WIDTH * PLAYER_WIDTH_RATE * 18
@@ -62,13 +62,12 @@ export default class MaJiang extends Sprite {
    */
   setMaJiangAcrossFingerPosZ(x, y) {
     let disX = x - this.width / 2
-    let disY = y - this.height / 2   
-
-    if (this.currentMoving === 'left' || (this.currentMoving === '' && this.touchedx - x >= Math.abs(this.touchedy - y))) {
+    let disY = y - this.height / 2
+    if (this.currentMoving === 'left' || (this.currentMoving === '' && this.touchedx - x > Math.abs(this.touchedy - y))) {
       disY = this.ex_y
       disX = Math.min(disX, this.ex_x)
       this.currentMoving = 'left'
-    } else if (this.currentMoving === 'right' || (this.currentMoving === '' && x - this.touchedx >= Math.abs(this.touchedy - y))) {
+    } else if (this.currentMoving === 'right' || (this.currentMoving === '' && x - this.touchedx > Math.abs(this.touchedy - y))) {
       disY = this.ex_y
       disX = Math.max(disX, this.ex_x)
       this.currentMoving = 'right'
@@ -80,8 +79,10 @@ export default class MaJiang extends Sprite {
       disX = this.ex_x
       disY = Math.max(disY, this.ex_y)
       this.currentMoving = 'down'
+    } else {
+      disX = this.ex_x
+      disY = this.ex_y
     }
-
     this.movePath.forEach(item => {
       if (item.left && this.currentMoving === 'left') {
         let _arr = item.left.split('_')
@@ -275,7 +276,6 @@ export default class MaJiang extends Sprite {
       e.preventDefault()
       let x = e.touches[0].clientX
       let y = e.touches[0].clientY
-
       //当前选中的麻将
       if (this.checkIsFingerOnAir(x, y)) {
         this.touched = true
@@ -288,7 +288,6 @@ export default class MaJiang extends Sprite {
         this.touchedx = x
         this.touchedy = y
       }
-
     }).bind(this))
 
     canvas.addEventListener('touchmove', ((e) => {
