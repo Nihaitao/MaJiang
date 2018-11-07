@@ -1,5 +1,6 @@
 import DataBus from './databus'
 import MaJiang from './majiang/majiang'
+import Music from './runtime/music'
 
 const screenWidth = window.innerWidth
 const screenHeight = window.innerHeight
@@ -18,11 +19,14 @@ export default class Main {
   constructor() {
     this.aniId = 0
     this.restart()
-    // this.touchHandler = this.touchEventHandler.bind(this)
-    // canvas.addEventListener('touchstart', this.touchHandler)
+    this.touchHandler = this.touchEventHandler.bind(this)
+    canvas.addEventListener('touchstart', this.touchHandler)
   }
 
   restart() {
+    this.music = new Music()
+    databus.mjArr.forEach(item => { item.removeEvent() })
+
     let indexArr = [{ value: 1, count: 4 }, { value: 2, count: 4 }, { value: 3, count: 4 }, { value: 4, count: 4 }, { value: 5, count: 4 }, { value: 6, count: 4 }, { value: 7, count: 4 }, { value: 8, count: 4 }, { value: 9, count: 4 }, { value: 10, count: 4 }, { value: 11, count: 4 }, { value: 12, count: 4 }, { value: 13, count: 4 }, { value: 14, count: 4 }, { value: 15, count: 4 }, { value: 16, count: 4 }, { value: 17, count: 4 }, { value: 18, count: 4 }, { value: 19, count: 4 }, { value: 20, count: 4 }, { value: 21, count: 4 }, { value: 22, count: 4 }, { value: 23, count: 4 }, { value: 24, count: 4 }, { value: 25, count: 4 }, { value: 26, count: 4 }, { value: 27, count: 4 }]
     databus.reset()
 
@@ -68,7 +72,7 @@ export default class Main {
    */
   render() {
     ctx.fillRect(0, 0, screenWidth, screenHeight)
-    // ctx.drawImage(atlas, 10, 10, 40, 40)
+    ctx.drawImage(atlas, 10, 10, 40, 40)
     databus.mjArr.forEach(item => {
       item.drawToCanvas(ctx)
     })

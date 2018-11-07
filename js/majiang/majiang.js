@@ -258,8 +258,8 @@ export default class MaJiang extends Sprite {
         }
       }
     })
-    if (!databus.touchmove || (Math.abs(databus.touchmove.x - disX) < 5 && Math.abs(databus.touchmove.y - disY) < 5)) {
-      databus.touchmove = { 'x': disX, 'y': disY, 'time': Date.now() }
+    if (!databus.touchmove || (Math.abs(databus.touchmove.x - disX) > 5 && Math.abs(databus.touchmove.y - disY) > 5)) {
+      databus.touchmove = { 'x': disX, 'y': disY }
     }
     databus.resetMjArr()
 
@@ -267,55 +267,78 @@ export default class MaJiang extends Sprite {
     this.y = disY
   }
 
+  touchstart(e){
+    e.preventDefault()
+    let x = e.touches[0].clientX
+    let y = e.touches[0].clientY
+    //当前选中的麻将
+    if (this.checkIsFingerOnAir(x, y)) {
+      this.touched = true
+      databus.currentMj = this
+      // 获取麻将移动方式
+      databus.getPathOfParticle(this)
+      // 用于判断移动方向
+      this.touchedx = x
+      this.touchedy = y
+    }
+  }
+
+  touchmove(e){
+    e.preventDefault()
+    let x = e.touches[0].clientX
+    let y = e.touches[0].clientY
+    if (this.touched) {
+      this.setMaJiangAcrossFingerPosZ(x, y)
+    }
+  }
+
+  touchend(e){
+    e.preventDefault()
+    if (this.touched && this.visible) {
+      databus.around(this)
+      // console.table(databus.dyadicArr)
+    }
+    if (databus.currentMj) {
+      databus.currentMj = null
+    }
+    this.currentMoving = ''
+    this.touched = false
+    this.x = this.ex_x
+    this.y = this.ex_y
+  }
+
   /**
    * 玩家响应手指的触摸事件
    * 改变麻将的位置
    */
   initEvent() {
-    canvas.addEventListener('touchstart', ((e) => {
-      e.preventDefault()
-      let x = e.touches[0].clientX
-      let y = e.touches[0].clientY
-      //当前选中的麻将
-      if (this.checkIsFingerOnAir(x, y)) {
-        this.touched = true
-        databus.currentMj = this
+    this.touchstartHandler = this.touchstart.bind(this)
+    canvas.addEventListener('touchstart', this.touchstartHandler)
 
-        // 获取麻将移动方式
-        databus.getPathOfParticle(this)
+    this.touchmoveHandler = this.touchmove.bind(this)
+    canvas.addEventListener('touchmove', this.touchmoveHandler)
 
-        // 用于判断移动方向
-        this.touchedx = x
-        this.touchedy = y
-      }
-    }).bind(this))
+    this.touchendHandler = this.touchend.bind(this)
+    canvas.addEventListener('touchend', this.touchendHandler)
+  }
 
-    canvas.addEventListener('touchmove', ((e) => {
-      e.preventDefault()
+  removeEvent(){
+    this.visible = false
 
-      let x = e.touches[0].clientX
-      let y = e.touches[0].clientY
-      if (this.touched) {
-        this.setMaJiangAcrossFingerPosZ(x, y)
-      }
+    canvas.removeEventListener(
+      'touchstart',
+      this.touchstartHandler
+    )
 
-    }).bind(this))
+    canvas.removeEventListener(
+      'touchmove',
+      this.touchmoveHandler
+    )
 
-    canvas.addEventListener('touchend', ((e) => {
-      e.preventDefault()
-      if (this.touched) {
-        databus.around(this)
-        // console.table(databus.dyadicArr)
-      }
-
-      if (databus.currentMj) {
-        databus.currentMj = null
-      }
-      this.currentMoving = ''
-      this.touched = false
-      this.x = this.ex_x
-      this.y = this.ex_y
-    }).bind(this))
+    canvas.removeEventListener(
+      'touchend',
+      this.touchendHandler
+    )
   }
 
 }

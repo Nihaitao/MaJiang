@@ -1,6 +1,8 @@
 import Pool from './base/pool'
+import Music from './runtime/music'
 
 let instance
+let music = new Music()
 
 /**
  * 全局状态管理器
@@ -27,7 +29,7 @@ export default class DataBus {
       }
     }
     this.change = []
-    this.touchmove = null
+    this.touchmove = null //判断是否移动麻将
     this.currentMj = null
   }
 
@@ -141,6 +143,7 @@ export default class DataBus {
     majiang.movePath.push({ "down": `${down}_${downArr.length}_${downEat}` })
   }
 
+  //更新麻将位置
   resetMjArr() {
     this.change.forEach(item => {
       this.mjArr.forEach(mj => {
@@ -149,6 +152,7 @@ export default class DataBus {
             mj.x = Math.min(item.x, mj.ex_x)
             if (item.disabled) {
               this.touchmove = null
+              music.eatMaJiang()
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col - item.step && x.visible) {
@@ -160,6 +164,7 @@ export default class DataBus {
             mj.x = Math.max(item.x, mj.ex_x)
             if (item.disabled) {
               this.touchmove = null
+              music.eatMaJiang()
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col + item.step && x.visible) {
@@ -171,6 +176,7 @@ export default class DataBus {
             mj.y = Math.min(item.y, mj.ex_y)
             if (item.disabled) {
               this.touchmove = null
+              music.eatMaJiang()
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row - item.step && x.col === mj.col && x.visible) {
@@ -182,6 +188,7 @@ export default class DataBus {
             mj.y = Math.max(item.y, mj.ex_y)
             if (item.disabled) {
               this.touchmove = null
+              music.eatMaJiang()
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row + item.step && x.col === mj.col && x.visible) {
@@ -191,6 +198,7 @@ export default class DataBus {
             }
           } else if (item.disabled) {
             this.touchmove = null
+            music.eatMaJiang()
             mj.visible = false
           }
         }
@@ -199,10 +207,9 @@ export default class DataBus {
     this.change = []
   }
 
+  //判断周围可以吃的麻将
   around(mj) {
     if (this.touchmove) {
-      let time = Date.now()
-      if (time - this.touchmove.time >= 200) {
         //横向移动，纵向检查
         if (mj.currentMoving === 'left' || mj.currentMoving === 'right') {
           const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width * 0.64)
@@ -218,6 +225,7 @@ export default class DataBus {
                   break
                 } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
                   upRow = i
+                  break
                 }
               }
             }
@@ -228,6 +236,7 @@ export default class DataBus {
                   break
                 } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
                   downRow = i
+                  break
                 }
               }
             }
@@ -235,7 +244,7 @@ export default class DataBus {
               mj.visible = false
               this.dyadicArr[mj.row][mj.col] = 0
               //1.0版本，自动消除较近的
-              if (Math.abs(upRow - mj.row) >= Math.abs(downRow - mj.row)) {
+              if (Math.abs(upRow - mj.row) <= Math.abs(downRow - mj.row)) {
                 this.mjArr.forEach(x => {
                   if (x.row === upRow && x.col === col && x.visible) {
                     x.visible = false
@@ -317,6 +326,7 @@ export default class DataBus {
                   break
                 } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
                   leftCol = i
+                  break
                 }
               }
             }
@@ -327,6 +337,7 @@ export default class DataBus {
                   break
                 } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
                   rightCol = i
+                  break
                 }
               }
             }
@@ -402,7 +413,12 @@ export default class DataBus {
           }
         }
         this.touchmove = null
-      }
-    }
+
+        if(!mj.visible){
+          music.eatMaJiang()
+        }else{
+          music.goBack()
+        }
+     }
   }
 }
