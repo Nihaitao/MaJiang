@@ -20,6 +20,7 @@ export default class MaJiang extends Sprite {
   constructor(params) {
     const PLAYER_IMG_SRC = `images/${params.value}.png`
     super(PLAYER_IMG_SRC, PLAYER_WIDTH, PLAYER_HEIGHT)
+    this.index = params.count
     this.col = params.count % 18
     this.row = parseInt((108 - params.count) / 18)
     this.x = CheckerboardWidth - this.width * (17 - this.col) * PLAYER_WIDTH_RATE

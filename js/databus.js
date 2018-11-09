@@ -1,5 +1,6 @@
 import Pool from './base/pool'
 import Music from './runtime/music'
+import Score from './runtime/score'
 
 let instance
 let music = new Music()
@@ -31,6 +32,10 @@ export default class DataBus {
     this.change = []
     this.touchmove = null //判断是否移动麻将
     this.currentMj = null
+    this.scorelist = [] //得分列表
+    this.totalScore = 0
+    this.startTime = Date.now()
+    this.gameWin = false
   }
 
   /**
@@ -103,7 +108,7 @@ export default class DataBus {
           break
         } else if (up > 0) {
           break
-        }else {
+        } else {
           upArr.push(this.dyadicArr[i][majiang.col])
         }
       } else { //碰到其他麻将了
@@ -129,7 +134,7 @@ export default class DataBus {
           break
         } else if (down > 0) {
           break
-        }else {
+        } else {
           downArr.push(this.dyadicArr[i][majiang.col])
         }
       } else { //碰到其他麻将了
@@ -153,6 +158,8 @@ export default class DataBus {
             if (item.disabled) {
               this.touchmove = null
               music.eatMaJiang()
+              this.score(mj.Identification)
+              console.log(1)
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col - item.step && x.visible) {
@@ -165,6 +172,7 @@ export default class DataBus {
             if (item.disabled) {
               this.touchmove = null
               music.eatMaJiang()
+              this.score(mj.Identification)
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col + item.step && x.visible) {
@@ -177,6 +185,7 @@ export default class DataBus {
             if (item.disabled) {
               this.touchmove = null
               music.eatMaJiang()
+              this.score(mj.Identification)
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row - item.step && x.col === mj.col && x.visible) {
@@ -189,6 +198,7 @@ export default class DataBus {
             if (item.disabled) {
               this.touchmove = null
               music.eatMaJiang()
+              this.score(mj.Identification)
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row + item.step && x.col === mj.col && x.visible) {
@@ -199,6 +209,7 @@ export default class DataBus {
           } else if (item.disabled) {
             this.touchmove = null
             music.eatMaJiang()
+            this.score(mj.Identification)
             mj.visible = false
           }
         }
@@ -210,67 +221,48 @@ export default class DataBus {
   //判断周围可以吃的麻将
   around(mj) {
     if (this.touchmove) {
-        //横向移动，纵向检查
-        if (mj.currentMoving === 'left' || mj.currentMoving === 'right') {
-          const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width * 0.64)
-          const moveStep = Math.round(moveX)
-          if (Math.abs(moveX - moveStep) < 0.3 && moveStep > 0) {
-            let upRow = -1, downRow = -1
-            const col = mj.currentMoving === 'left' ? mj.col - moveStep : mj.col + moveStep
-            const moveCounts = mj.currentMoving === 'left' ? mj.movePath[0].left.split('_')[1] : mj.movePath[1].right.split('_')[1]
-            //往上
-            if (mj.row > 0) {
-              for (let i = mj.row - 1; i >= 0; i--) {
-                if (this.dyadicArr[i][col] > 0 && this.dyadicArr[i][col] !== mj.Identification) {
-                  break
-                } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
-                  upRow = i
-                  break
-                }
+      //横向移动，纵向检查
+      if (mj.currentMoving === 'left' || mj.currentMoving === 'right') {
+        const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width * 0.64)
+        const moveStep = Math.round(moveX)
+        if (Math.abs(moveX - moveStep) < 0.3 && moveStep > 0) {
+          let upRow = -1, downRow = -1
+          const col = mj.currentMoving === 'left' ? mj.col - moveStep : mj.col + moveStep
+          const moveCounts = mj.currentMoving === 'left' ? mj.movePath[0].left.split('_')[1] : mj.movePath[1].right.split('_')[1]
+          //往上
+          if (mj.row > 0) {
+            for (let i = mj.row - 1; i >= 0; i--) {
+              if (this.dyadicArr[i][col] > 0 && this.dyadicArr[i][col] !== mj.Identification) {
+                break
+              } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
+                upRow = i
+                break
               }
             }
-            //往下
-            if (mj.row < 5) {
-              for (let i = mj.row + 1; i <= 5; i++) {
-                if (this.dyadicArr[i][col] > 0 && this.dyadicArr[i][col] !== mj.Identification) {
-                  break
-                } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
-                  downRow = i
-                  break
-                }
+          }
+          //往下
+          if (mj.row < 5) {
+            for (let i = mj.row + 1; i <= 5; i++) {
+              if (this.dyadicArr[i][col] > 0 && this.dyadicArr[i][col] !== mj.Identification) {
+                break
+              } else if (this.dyadicArr[i][col] === mj.Identification && mj.visible) {
+                downRow = i
+                break
               }
             }
-            if (upRow > -1 && downRow > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
-              //1.0版本，自动消除较近的
-              if (Math.abs(upRow - mj.row) <= Math.abs(downRow - mj.row)) {
-                this.mjArr.forEach(x => {
-                  if (x.row === upRow && x.col === col && x.visible) {
-                    x.visible = false
-                    this.dyadicArr[upRow][col] = 0
-                  }
-                })
-              } else {
-                this.mjArr.forEach(x => {
-                  if (x.row === downRow && x.col === col && x.visible) {
-                    x.visible = false
-                    this.dyadicArr[downRow][col] = 0
-                  }
-                })
-              }
-            } else if (upRow > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
+          }
+          if (upRow > -1 && downRow > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            //1.0版本，自动消除较近的
+            if (Math.abs(upRow - mj.row) <= Math.abs(downRow - mj.row)) {
               this.mjArr.forEach(x => {
                 if (x.row === upRow && x.col === col && x.visible) {
                   x.visible = false
                   this.dyadicArr[upRow][col] = 0
                 }
               })
-            } else if (downRow > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
+            } else {
               this.mjArr.forEach(x => {
                 if (x.row === downRow && x.col === col && x.visible) {
                   x.visible = false
@@ -278,100 +270,100 @@ export default class DataBus {
                 }
               })
             }
-            //改变移动了的麻将的位置
-            if (upRow > -1 || downRow > -1) {
-              if (mj.currentMoving === 'left') {
-                for (var i = mj.col - moveCounts; i < mj.col; i++) {
-                  this.mjArr.forEach(x => {
-                    if (x.row === mj.row && x.col === i && x.visible) {
-                      let temp = this.dyadicArr[x.row][i]
-                      this.dyadicArr[x.row][i] = 0
-                      this.dyadicArr[x.row][i - moveStep] = temp
-                      x.col -= moveStep
-                      x.ex_x -= x.width * 0.64 * moveStep
-                      x.x = x.ex_x
-                    }
-                  })
-                }
-              } else {
-                for (var i = mj.col + moveCounts * 1; i > mj.col; i--) {
-                  this.mjArr.forEach(x => {
-                    if (x.row === mj.row && x.col === i && x.visible) {
-                      let temp = this.dyadicArr[x.row][i]
-                      this.dyadicArr[x.row][i] = 0
-                      this.dyadicArr[x.row][i + moveStep] = temp
-                      x.col += moveStep
-                      x.ex_x += x.width * 0.64 * moveStep
-                      x.x = x.ex_x
-                    }
-                  })
-                }
+          } else if (upRow > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            this.mjArr.forEach(x => {
+              if (x.row === upRow && x.col === col && x.visible) {
+                x.visible = false
+                this.dyadicArr[upRow][col] = 0
               }
-            }
-
+            })
+          } else if (downRow > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            this.mjArr.forEach(x => {
+              if (x.row === downRow && x.col === col && x.visible) {
+                x.visible = false
+                this.dyadicArr[downRow][col] = 0
+              }
+            })
           }
+          //改变移动了的麻将的位置
+          if (upRow > -1 || downRow > -1) {
+            if (mj.currentMoving === 'left') {
+              for (var i = mj.col - moveCounts; i < mj.col; i++) {
+                this.mjArr.forEach(x => {
+                  if (x.row === mj.row && x.col === i && x.visible) {
+                    let temp = this.dyadicArr[x.row][i]
+                    this.dyadicArr[x.row][i] = 0
+                    this.dyadicArr[x.row][i - moveStep] = temp
+                    x.col -= moveStep
+                    x.ex_x -= x.width * 0.64 * moveStep
+                    x.x = x.ex_x
+                  }
+                })
+              }
+            } else {
+              for (var i = mj.col + moveCounts * 1; i > mj.col; i--) {
+                this.mjArr.forEach(x => {
+                  if (x.row === mj.row && x.col === i && x.visible) {
+                    let temp = this.dyadicArr[x.row][i]
+                    this.dyadicArr[x.row][i] = 0
+                    this.dyadicArr[x.row][i + moveStep] = temp
+                    x.col += moveStep
+                    x.ex_x += x.width * 0.64 * moveStep
+                    x.x = x.ex_x
+                  }
+                })
+              }
+            }
+          }
+
         }
-        //纵向移动，横向检查
-        if (mj.currentMoving === 'up' || mj.currentMoving === 'down') {
-          const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.9)
-          const moveStep = Math.round(moveY)
-          if (Math.abs(moveY - moveStep) < 0.4 && moveStep > 0) {
-            let leftCol = -1, rightCol = -1
-            const row = mj.currentMoving === 'up' ? mj.row - moveStep : mj.row + moveStep
-            const moveCounts = mj.currentMoving === 'up' ? mj.movePath[2].up.split('_')[1] : mj.movePath[3].down.split('_')[1]
-            //往左
-            if (mj.col > 0) {
-              for (let i = mj.col - 1; i >= 0; i--) {
-                if (this.dyadicArr[row][i] > 0 && this.dyadicArr[row][i] !== mj.Identification) {
-                  break
-                } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
-                  leftCol = i
-                  break
-                }
+      }
+      //纵向移动，横向检查
+      if (mj.currentMoving === 'up' || mj.currentMoving === 'down') {
+        const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.9)
+        const moveStep = Math.round(moveY)
+        if (Math.abs(moveY - moveStep) < 0.4 && moveStep > 0) {
+          let leftCol = -1, rightCol = -1
+          const row = mj.currentMoving === 'up' ? mj.row - moveStep : mj.row + moveStep
+          const moveCounts = mj.currentMoving === 'up' ? mj.movePath[2].up.split('_')[1] : mj.movePath[3].down.split('_')[1]
+          //往左
+          if (mj.col > 0) {
+            for (let i = mj.col - 1; i >= 0; i--) {
+              if (this.dyadicArr[row][i] > 0 && this.dyadicArr[row][i] !== mj.Identification) {
+                break
+              } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
+                leftCol = i
+                break
               }
             }
-            //往右
-            if (mj.col < 17) {
-              for (let i = mj.col + 1; i <= 17; i++) {
-                if (this.dyadicArr[row][i] > 0 && this.dyadicArr[row][i] !== mj.Identification) {
-                  break
-                } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
-                  rightCol = i
-                  break
-                }
+          }
+          //往右
+          if (mj.col < 17) {
+            for (let i = mj.col + 1; i <= 17; i++) {
+              if (this.dyadicArr[row][i] > 0 && this.dyadicArr[row][i] !== mj.Identification) {
+                break
+              } else if (this.dyadicArr[row][i] === mj.Identification && mj.visible) {
+                rightCol = i
+                break
               }
             }
-            if (leftCol > -1 && rightCol > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
-              //1.0版本，自动消除较近的
-              if (Math.abs(leftCol - mj.col) >= Math.abs(rightCol - mj.col)) {
-                this.mjArr.forEach(x => {
-                  if (x.row === row && x.col === leftCol && x.visible) {
-                    x.visible = false
-                    this.dyadicArr[row][leftCol] = 0
-                  }
-                })
-              } else {
-                this.mjArr.forEach(x => {
-                  if (x.row === row && x.col === rightCol && x.visible) {
-                    x.visible = false
-                    this.dyadicArr[row][rightCol] = 0
-                  }
-                })
-              }
-            } else if (leftCol > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
+          }
+          if (leftCol > -1 && rightCol > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            //1.0版本，自动消除较近的
+            if (Math.abs(leftCol - mj.col) >= Math.abs(rightCol - mj.col)) {
               this.mjArr.forEach(x => {
                 if (x.row === row && x.col === leftCol && x.visible) {
                   x.visible = false
                   this.dyadicArr[row][leftCol] = 0
                 }
               })
-            } else if (rightCol > -1) {
-              mj.visible = false
-              this.dyadicArr[mj.row][mj.col] = 0
+            } else {
               this.mjArr.forEach(x => {
                 if (x.row === row && x.col === rightCol && x.visible) {
                   x.visible = false
@@ -379,46 +371,124 @@ export default class DataBus {
                 }
               })
             }
-            //改变移动了的麻将的位置
-            if (leftCol > -1 || rightCol > -1) {
-              if (mj.currentMoving === 'up') {
-                for (var i = mj.row - moveCounts; i < mj.row; i++) {
-                  this.mjArr.forEach(x => {
-                    if (x.row === i && x.col === mj.col && x.visible) {
-                      let temp = this.dyadicArr[i][x.col]
-                      this.dyadicArr[i][x.col] = 0
-                      this.dyadicArr[i - moveStep][x.col] = temp
-                      x.row -= moveStep
-                      x.ex_y -= x.height * 0.89 * moveStep
-                      x.y = x.ex_y
-                    }
-                  })
-                }
-              } else {
-                for (var i = mj.row + moveCounts * 1; i > mj.row; i--) {
-                  this.mjArr.forEach(x => {
-                    if (x.row === i && x.col === mj.col && x.visible) {
-                      let temp = this.dyadicArr[i][x.col]
-                      this.dyadicArr[i][x.col] = 0
-                      this.dyadicArr[i + moveStep][x.col] = temp
-                      x.row += moveStep
-                      x.ex_y += x.height * 0.89 * moveStep
-                      x.y = x.ex_y
-                    }
-                  })
-                }
+          } else if (leftCol > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            this.mjArr.forEach(x => {
+              if (x.row === row && x.col === leftCol && x.visible) {
+                x.visible = false
+                this.dyadicArr[row][leftCol] = 0
+              }
+            })
+          } else if (rightCol > -1) {
+            mj.visible = false
+            this.dyadicArr[mj.row][mj.col] = 0
+            this.mjArr.forEach(x => {
+              if (x.row === row && x.col === rightCol && x.visible) {
+                x.visible = false
+                this.dyadicArr[row][rightCol] = 0
+              }
+            })
+          }
+          //改变移动了的麻将的位置
+          if (leftCol > -1 || rightCol > -1) {
+            if (mj.currentMoving === 'up') {
+              for (var i = mj.row - moveCounts; i < mj.row; i++) {
+                this.mjArr.forEach(x => {
+                  if (x.row === i && x.col === mj.col && x.visible) {
+                    let temp = this.dyadicArr[i][x.col]
+                    this.dyadicArr[i][x.col] = 0
+                    this.dyadicArr[i - moveStep][x.col] = temp
+                    x.row -= moveStep
+                    x.ex_y -= x.height * 0.89 * moveStep
+                    x.y = x.ex_y
+                  }
+                })
+              }
+            } else {
+              for (var i = mj.row + moveCounts * 1; i > mj.row; i--) {
+                this.mjArr.forEach(x => {
+                  if (x.row === i && x.col === mj.col && x.visible) {
+                    let temp = this.dyadicArr[i][x.col]
+                    this.dyadicArr[i][x.col] = 0
+                    this.dyadicArr[i + moveStep][x.col] = temp
+                    x.row += moveStep
+                    x.ex_y += x.height * 0.89 * moveStep
+                    x.y = x.ex_y
+                  }
+                })
               }
             }
-
           }
-        }
-        this.touchmove = null
 
-        if(!mj.visible){
-          music.eatMaJiang()
-        }else{
-          music.goBack()
         }
-     }
+      }
+      this.touchmove = null
+
+      if (!mj.visible) {
+        music.eatMaJiang()
+        this.score(mj.Identification)
+      } else {
+        music.goBack()
+      }
+    }
+  }
+
+
+  /**
+   * 得分
+   */
+  score(val) {
+    let score = this.pool.getItemByClass('score', Score)
+    val = val % 9 || 9
+
+    let time = Math.floor((Date.now() - this.startTime) / 1000);
+    //1分钟内得分*100 2分钟内得分*80 3分钟内得分*70 4分钟内得分*60 5分钟内得分*50 10分钟内得分*30 15分钟内得分*10
+    if (time <= 60){
+      val *= 100
+    } else if (time <= 120){
+      val *= 80
+    } else if (time <= 180) {
+      val *= 70
+    } else if (time <= 240) {
+      val *= 60
+    } else if (time <= 300) {
+      val *= 50
+    } else if (time <= 600) {
+      val *= 30
+    } else if (time <= 900) {
+      val *= 10
+    }
+    score.init(val, window.innerWidth / 2 - 50, window.innerHeight / 2 + 30, 4)
+    this.scorelist.push(score)
+    this.totalScore += val 
+  }
+
+  /**
+   * 回收得分，进入对象池
+   * 此后不进入帧循环
+   */
+  removeScore(score) {
+    let temp = this.score.shift()
+    this.pool.recover('score', score)
+  }
+
+  /**
+   * 返回当前的游戏时间
+   * 
+   * @returns 
+   * @memberof DataBus
+   */
+  getCurrentTime() {
+    let time = Math.floor((Date.now() - this.startTime) / 1000);
+    let minute = Math.floor(time / 60)
+    if (minute < 10) {
+      minute = '0' + minute
+    }
+    let second = Math.floor(time % 60)
+    if (second < 10) {
+      second = '0' + second
+    }
+    return minute + ':' + second
   }
 }

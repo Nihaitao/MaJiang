@@ -20,7 +20,15 @@ export default class Music {
     this.backAudio = new Audio()
     this.backAudio.src = 'audio/back.mp3'
 
+    this.winAudio = new Audio()
+    this.winAudio.src = 'audio/win.mp3'
+    this.isPlayWin = false
+
+    this.beginAudio = new Audio()
+    this.beginAudio.src = 'audio/begin.mp3'
+
     this.playBgm()
+
   }
 
   playBgm() {
@@ -35,5 +43,21 @@ export default class Music {
   goBack() {
     this.backAudio.currentTime = 0
     this.backAudio.play()
+  }
+
+  playBegin(){
+    this.winAudio.pause()
+    this.isPlayWin = false
+    this.beginAudio.currentTime = 0
+    this.beginAudio.play()
+  }
+
+  playWin(){
+    if (this.isPlayWin){
+      return
+    }
+    this.winAudio.currentTime = 0
+    this.winAudio.play()
+    this.isPlayWin = true
   }
 }
