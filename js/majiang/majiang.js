@@ -4,17 +4,17 @@ import DataBus from '../databus'
 const screenWidth = window.innerWidth
 const screenHeight = window.innerHeight
 
+// 麻将相关常量设置   单个麻将尺寸46*72，高72(牌面64，上截面8)  真实牌面=46*(64+8)
+const CheckerboardHeight = screenHeight * 0.8                             //棋盘高度
+const PLAYER_HEIGHT = CheckerboardHeight / 6                              //麻将高度
+const HEIGHT_WIDTH_RATE = 46 / 72                                         //麻将宽高比
+const PLAYER_WIDTH = PLAYER_HEIGHT * HEIGHT_WIDTH_RATE                    //麻将宽度
+const PLAYER_WIDTH_RATE = 1                                               //麻将宽度偏差指数
+const PLAYER_HEIGHT_RATE = 0.89                                           //麻将高度偏差指数（64/72）
+const CheckerboardWidth = PLAYER_WIDTH * PLAYER_WIDTH_RATE * 18           //棋盘宽度
+const Width_Middle = screenWidth - (screenWidth - CheckerboardWidth) / 2  //棋盘水平居中位置控制
+
 let databus = new DataBus()
-
-// 麻将相关常量设置   原尺寸72*72，真实图宽48，高72(牌面64，上截面8)  真实牌面=48*(64+8)
-const PLAYER_WIDTH = 48
-const PLAYER_HEIGHT = 48
-const PLAYER_WIDTH_RATE = 0.64 //   48/72 + 偏差 
-const PLAYER_HEIGHT_RATE = 0.9 //   64/72 + 偏差
-
-// 棋盘大小
-const CheckerboardWidth = PLAYER_WIDTH * PLAYER_WIDTH_RATE * 18
-const CheckerboardHeight = PLAYER_HEIGHT * 6
 
 export default class MaJiang extends Sprite {
   constructor(params) {
@@ -23,7 +23,7 @@ export default class MaJiang extends Sprite {
     this.index = params.count
     this.col = params.count % 18
     this.row = parseInt((108 - params.count) / 18)
-    this.x = CheckerboardWidth - this.width * (17 - this.col) * PLAYER_WIDTH_RATE
+    this.x = Width_Middle - this.width * (18 - this.col) * PLAYER_WIDTH_RATE
     this.y = CheckerboardHeight - this.height * (5 - this.row) * PLAYER_HEIGHT_RATE
 
     databus.dyadicArr[this.row][this.col] = params.value
@@ -48,7 +48,7 @@ export default class MaJiang extends Sprite {
    * @return {Boolean}: 用于标识手指是否在麻将上的布尔值
    */
   checkIsFingerOnAir(x, y) {
-    const deviationX = PLAYER_WIDTH * (-0.2) //x轴偏移量
+    const deviationX = 0 //x轴偏移量
     const deviationY = PLAYER_HEIGHT * (PLAYER_HEIGHT_RATE - 1) //y轴偏移量
     return !!(x >= this.x - deviationX &&
       y >= this.y - deviationY &&

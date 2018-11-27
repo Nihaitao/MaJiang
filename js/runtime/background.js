@@ -1,9 +1,11 @@
+
 const BG_IMG_SRC = 'images/bg.jpg'
 /**
  * 游戏背景类
  */
 export default class BackGround {
   constructor(ctx) {
+
     this.img = new Image()
     this.img.src = BG_IMG_SRC
 

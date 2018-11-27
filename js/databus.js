@@ -17,6 +17,17 @@ export default class DataBus {
 
     this.pool = new Pool()
 
+    this.playModel = ''
+    this.doubleType = 0
+    this.keyboard = false
+    this.errorInfo = ''
+    this.selfImageUrl = ''
+    this.selfNickName = ''
+    this.rankList = []
+    this.socket = null
+    this.roomNumber = ''
+    this.player1 = {}
+    this.player2 = {}
     this.reset()
   }
 
@@ -35,7 +46,16 @@ export default class DataBus {
     this.scorelist = [] //得分列表
     this.totalScore = 0
     this.startTime = Date.now()
+    this.pauseTotalTime = 0
+    this.pauseStartTime = 0
     this.gameWin = false
+    this.doubleEat = false
+    this.showRankList = false
+    this.SaveTheScore = false
+    // this.doubleType = 0
+    // this.player1 = {}
+    // this.player2 = {}
+    // this.roomNumber = ''
   }
 
   /**
@@ -209,7 +229,7 @@ export default class DataBus {
           } else if (item.disabled) {
             this.touchmove = null
             music.eatMaJiang()
-            this.score(mj.Identification)
+            this.score(mj.Identification,this.doubleEat)
             mj.visible = false
           }
         }
@@ -223,7 +243,7 @@ export default class DataBus {
     if (this.touchmove) {
       //横向移动，纵向检查
       if (mj.currentMoving === 'left' || mj.currentMoving === 'right') {
-        const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width * 0.64)
+        const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width)
         const moveStep = Math.round(moveX)
         if (Math.abs(moveX - moveStep) < 0.3 && moveStep > 0) {
           let upRow = -1, downRow = -1
@@ -299,7 +319,7 @@ export default class DataBus {
                     this.dyadicArr[x.row][i] = 0
                     this.dyadicArr[x.row][i - moveStep] = temp
                     x.col -= moveStep
-                    x.ex_x -= x.width * 0.64 * moveStep
+                    x.ex_x -= x.width * moveStep
                     x.x = x.ex_x
                   }
                 })
@@ -312,7 +332,7 @@ export default class DataBus {
                     this.dyadicArr[x.row][i] = 0
                     this.dyadicArr[x.row][i + moveStep] = temp
                     x.col += moveStep
-                    x.ex_x += x.width * 0.64 * moveStep
+                    x.ex_x += x.width * moveStep
                     x.x = x.ex_x
                   }
                 })
@@ -324,9 +344,9 @@ export default class DataBus {
       }
       //纵向移动，横向检查
       if (mj.currentMoving === 'up' || mj.currentMoving === 'down') {
-        const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.9)
+        const moveY = Math.abs(mj.y - mj.ex_y) / (mj.height * 0.89)
         const moveStep = Math.round(moveY)
-        if (Math.abs(moveY - moveStep) < 0.4 && moveStep > 0) {
+        if (Math.abs(moveY - moveStep) < 0.3 && moveStep > 0) {
           let leftCol = -1, rightCol = -1
           const row = mj.currentMoving === 'up' ? mj.row - moveStep : mj.row + moveStep
           const moveCounts = mj.currentMoving === 'up' ? mj.movePath[2].up.split('_')[1] : mj.movePath[3].down.split('_')[1]
@@ -438,11 +458,11 @@ export default class DataBus {
   /**
    * 得分
    */
-  score(val) {
+  score(val, doubleEat) {
     let score = this.pool.getItemByClass('score', Score)
     val = val % 9 || 9
 
-    let time = Math.floor((Date.now() - this.startTime) / 1000);
+    let time = Math.floor((Date.now() - this.startTime - this.pauseTotalTime) / 1000);
     //1分钟内得分*100 2分钟内得分*80 3分钟内得分*70 4分钟内得分*60 5分钟内得分*50 10分钟内得分*30 15分钟内得分*10
     if (time <= 60){
       val *= 100
@@ -461,7 +481,14 @@ export default class DataBus {
     }
     score.init(val, window.innerWidth / 2 - 50, window.innerHeight / 2 + 30, 4)
     this.scorelist.push(score)
-    this.totalScore += val 
+    if (doubleEat === undefined) {
+      this.totalScore += val 
+    } else {
+      this.doubleEat = !doubleEat
+      if (doubleEat) {
+        this.totalScore += val
+      }
+    }
   }
 
   /**
@@ -480,7 +507,7 @@ export default class DataBus {
    * @memberof DataBus
    */
   getCurrentTime() {
-    let time = Math.floor((Date.now() - this.startTime) / 1000);
+    let time = Math.floor((Date.now() - this.startTime - this.pauseTotalTime) / 1000);
     let minute = Math.floor(time / 60)
     if (minute < 10) {
       minute = '0' + minute
@@ -490,5 +517,24 @@ export default class DataBus {
       second = '0' + second
     }
     return minute + ':' + second
+  }
+
+  timeFormat (fmt,times) {
+    var time = new Date(times)
+    var o = {
+      "M+": time.getMonth() + 1,
+      "d+": time.getDate(),
+      "h+": time.getHours(),
+      "m+": time.getMinutes(),
+      "s+": time.getSeconds(),
+      "q+": Math.floor((time.getMonth() + 3) / 3),
+      "S": time.getMilliseconds()
+    };
+    if (/(y+)/.test(fmt))
+      fmt = fmt.replace(RegExp.$1, (time.getFullYear() + "").substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp("(" + k + ")").test(fmt))
+        fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+    return fmt;
   }
 }

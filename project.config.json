@@ -4,15 +4,15 @@
 		"ignore": []
 	},
 	"setting": {
-		"urlCheck": true,
+		"urlCheck": false,
 		"es6": true,
 		"postcss": true,
 		"minified": true,
 		"newFeature": true
 	},
-	"compileType": "game",
+	"compileType": "miniprogram",
 	"libVersion": "2.3.0",
-	"appid": "wx3ce240791c7c91e1",
+	"appid": "wxc53e77afa628c117",
 	"projectname": "MaJiang",
 	"debugOptions": {
 		"hidedInDevtools": []
