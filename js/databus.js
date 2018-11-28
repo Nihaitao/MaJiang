@@ -28,6 +28,7 @@ export default class DataBus {
     this.roomNumber = ''
     this.player1 = {}
     this.player2 = {}
+    this.dbMjArr = []
     this.reset()
   }
 
@@ -52,6 +53,8 @@ export default class DataBus {
     this.doubleEat = false
     this.showRankList = false
     this.SaveTheScore = false
+    this.myRound = true
+    this.duizi = []
     // this.doubleType = 0
     // this.player1 = {}
     // this.player2 = {}
@@ -168,7 +171,7 @@ export default class DataBus {
     majiang.movePath.push({ "down": `${down}_${downArr.length}_${downEat}` })
   }
 
-  //更新麻将位置
+  //更新麻将位置(触碰吃)
   resetMjArr() {
     this.change.forEach(item => {
       this.mjArr.forEach(mj => {
@@ -179,11 +182,13 @@ export default class DataBus {
               this.touchmove = null
               music.eatMaJiang()
               this.score(mj.Identification)
-              console.log(1)
               mj.visible = false
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col - item.step && x.visible) {
                   x.visible = false
+                  if (this.playModel === 'Double') {
+                    this.noticeOther({ move: 'left', step: 0, counts: 0, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification })
+                  }
                 }
               })
             }
@@ -197,6 +202,9 @@ export default class DataBus {
               this.mjArr.forEach(x => {
                 if (x.row === item.row && x.col === mj.col + item.step && x.visible) {
                   x.visible = false
+                  if (this.playModel === 'Double') {
+                    this.noticeOther({ move: 'right', step: 0, counts: 0, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification })
+                  }
                 }
               })
             }
@@ -210,6 +218,9 @@ export default class DataBus {
               this.mjArr.forEach(x => {
                 if (x.row === item.row - item.step && x.col === mj.col && x.visible) {
                   x.visible = false
+                  if (this.playModel === 'Double') {
+                    this.noticeOther({ move: 'up', step: 0, counts: 0, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification })
+                  }
                 }
               })
             }
@@ -223,14 +234,25 @@ export default class DataBus {
               this.mjArr.forEach(x => {
                 if (x.row === item.row + item.step && x.col === mj.col && x.visible) {
                   x.visible = false
+                  if (this.playModel === 'Double') {
+                    this.noticeOther({ move: 'down', step: 0, counts: 0, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification })
+                  }
                 }
               })
             }
           } else if (item.disabled) {
             this.touchmove = null
             music.eatMaJiang()
-            this.score(mj.Identification,this.doubleEat)
+            this.score(mj.Identification, this.doubleEat)
             mj.visible = false
+            //这里会触发两次（相邻的触碰吃掉， 先吃一个再吃一个）
+            if (this.duizi.length === 2) {
+              this.duizi = []
+            }
+            this.duizi.push(mj)
+            if (this.playModel === 'Double' && this.duizi.length === 2) {
+              this.noticeOther({ move: '', step: 0, counts: 0, start: { row: this.duizi[0].row, col: this.duizi[0].col }, end: { row: this.duizi[1].row, col: this.duizi[1].col }, score: this.duizi[0].Identification })
+            }
           }
         }
       })
@@ -238,9 +260,10 @@ export default class DataBus {
     this.change = []
   }
 
-  //判断周围可以吃的麻将
+  //判断周围可以吃的麻将（移动吃）
   around(mj) {
     if (this.touchmove) {
+      let movePath = {}
       //横向移动，纵向检查
       if (mj.currentMoving === 'left' || mj.currentMoving === 'right') {
         const moveX = Math.abs(mj.x - mj.ex_x) / (mj.width)
@@ -280,6 +303,9 @@ export default class DataBus {
                 if (x.row === upRow && x.col === col && x.visible) {
                   x.visible = false
                   this.dyadicArr[upRow][col] = 0
+                  if (this.playModel === 'Double') {
+                    movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                  }
                 }
               })
             } else {
@@ -287,6 +313,9 @@ export default class DataBus {
                 if (x.row === downRow && x.col === col && x.visible) {
                   x.visible = false
                   this.dyadicArr[downRow][col] = 0
+                  if (this.playModel === 'Double') {
+                    movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                  }
                 }
               })
             }
@@ -297,6 +326,9 @@ export default class DataBus {
               if (x.row === upRow && x.col === col && x.visible) {
                 x.visible = false
                 this.dyadicArr[upRow][col] = 0
+                if (this.playModel === 'Double') {
+                  movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                }
               }
             })
           } else if (downRow > -1) {
@@ -306,6 +338,9 @@ export default class DataBus {
               if (x.row === downRow && x.col === col && x.visible) {
                 x.visible = false
                 this.dyadicArr[downRow][col] = 0
+                if (this.playModel === 'Double') {
+                  movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                }
               }
             })
           }
@@ -381,6 +416,9 @@ export default class DataBus {
                 if (x.row === row && x.col === leftCol && x.visible) {
                   x.visible = false
                   this.dyadicArr[row][leftCol] = 0
+                  if (this.playModel === 'Double') {
+                    movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                  }
                 }
               })
             } else {
@@ -388,6 +426,9 @@ export default class DataBus {
                 if (x.row === row && x.col === rightCol && x.visible) {
                   x.visible = false
                   this.dyadicArr[row][rightCol] = 0
+                  if (this.playModel === 'Double') {
+                    movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                  }
                 }
               })
             }
@@ -398,6 +439,9 @@ export default class DataBus {
               if (x.row === row && x.col === leftCol && x.visible) {
                 x.visible = false
                 this.dyadicArr[row][leftCol] = 0
+                if (this.playModel === 'Double') {
+                  movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                }
               }
             })
           } else if (rightCol > -1) {
@@ -407,6 +451,9 @@ export default class DataBus {
               if (x.row === row && x.col === rightCol && x.visible) {
                 x.visible = false
                 this.dyadicArr[row][rightCol] = 0
+                if (this.playModel === 'Double') {
+                  movePath = { move: mj.currentMoving, step: moveStep, counts: moveCounts, start: { row: mj.row, col: mj.col }, end: { row: x.row, col: x.col }, score: mj.Identification }
+                }
               }
             })
           }
@@ -445,15 +492,78 @@ export default class DataBus {
       }
       this.touchmove = null
 
-      if (!mj.visible) {
+      if (!mj.visible) {        
         music.eatMaJiang()
         this.score(mj.Identification)
+        this.noticeOther(movePath)
       } else {
         music.goBack()
       }
     }
   }
 
+
+  noticeOther(movePath) {
+    //通知对手回合
+    this.socket.emit('nextround', this.roomNumber, movePath, this.dyadicArr)
+    this.myRound = false
+
+    if (!this.socket._callbacks.$myround){// 防止重复监听
+      //等待我的回合
+      this.socket.on('myround', rsp => {
+        this.myRound = true
+        this.dyadicArr = rsp.dyadicArr
+        //模拟对手动作
+        if (rsp.movePath.step === 0) {//闪烁消失
+          this.mjArr.forEach(mj => {
+            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+              mj.blink()
+            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+              mj.blink()
+            }
+          })
+        } else if (rsp.movePath.counts === "0") {
+          this.mjArr.forEach(mj => {
+            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+              mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+              setTimeout(() => { mj.blink() }, 1000)
+            }
+          })
+        } else if (rsp.movePath.counts > 0){
+          let i = 1
+          while (i <= rsp.movePath.counts){
+            let row = rsp.movePath.start.row
+            let col = rsp.movePath.start.col
+            if (rsp.movePath.move === 'left'){
+              col -= i
+            } else if (rsp.movePath.move === 'right'){
+              col += i
+            } else if (rsp.movePath.move === 'up') {
+              row -= i
+            } else if (rsp.movePath.move === 'down') {
+              row += i
+            }
+            this.mjArr.forEach(mj => {
+              if (mj.visible && mj.col === col && mj.row === row) {
+                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, false)
+              } 
+            })
+            i++
+          }
+          this.mjArr.forEach(mj => {
+            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+              mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+              setTimeout(() => { mj.blink() }, 1000)
+            }
+          })
+        }
+      })
+    }
+
+
+  }
 
   /**
    * 得分
@@ -462,27 +572,32 @@ export default class DataBus {
     let score = this.pool.getItemByClass('score', Score)
     val = val % 9 || 9
 
-    let time = Math.floor((Date.now() - this.startTime - this.pauseTotalTime) / 1000);
-    //1分钟内得分*100 2分钟内得分*80 3分钟内得分*70 4分钟内得分*60 5分钟内得分*50 10分钟内得分*30 15分钟内得分*10
-    if (time <= 60){
-      val *= 100
-    } else if (time <= 120){
-      val *= 80
-    } else if (time <= 180) {
-      val *= 70
-    } else if (time <= 240) {
-      val *= 60
-    } else if (time <= 300) {
-      val *= 50
-    } else if (time <= 600) {
-      val *= 30
-    } else if (time <= 900) {
-      val *= 10
+    if (this.playModel === 'Double') {
+
+    } else {
+      let time = Math.floor((Date.now() - this.startTime - this.pauseTotalTime) / 1000);
+      //1分钟内得分*100 2分钟内得分*80 3分钟内得分*70 4分钟内得分*60 5分钟内得分*50 10分钟内得分*30 15分钟内得分*10
+      if (time <= 60) {
+        val *= 100
+      } else if (time <= 120) {
+        val *= 80
+      } else if (time <= 180) {
+        val *= 70
+      } else if (time <= 240) {
+        val *= 60
+      } else if (time <= 300) {
+        val *= 50
+      } else if (time <= 600) {
+        val *= 30
+      } else if (time <= 900) {
+        val *= 10
+      }
     }
-    score.init(val, window.innerWidth / 2 - 50, window.innerHeight / 2 + 30, 4)
+
+    score.init(val, window.innerWidth / 2, window.innerHeight / 2 + 30, 4)
     this.scorelist.push(score)
     if (doubleEat === undefined) {
-      this.totalScore += val 
+      this.totalScore += val
     } else {
       this.doubleEat = !doubleEat
       if (doubleEat) {
@@ -519,7 +634,7 @@ export default class DataBus {
     return minute + ':' + second
   }
 
-  timeFormat (fmt,times) {
+  timeFormat(fmt, times) {
     var time = new Date(times)
     var o = {
       "M+": time.getMonth() + 1,

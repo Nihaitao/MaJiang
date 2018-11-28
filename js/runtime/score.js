@@ -14,6 +14,7 @@ export default class Score {
     gradient.addColorStop("1.0", "red")
     // 用渐变填色
     ctx.fillStyle = gradient
+    ctx.textAlign = "center"
     ctx.fillText(this.val , this.x, this.y, 200)
   }
   init(val, x, y, speed) {
@@ -23,7 +24,7 @@ export default class Score {
     this.speed = speed
   }
 
-  // 每一帧更新子弹位置
+  // 每一帧更新得分位置
   update() {
     this.y -= this.speed
   }

@@ -53,7 +53,7 @@ export default class MaJiang extends Sprite {
     return !!(x >= this.x - deviationX &&
       y >= this.y - deviationY &&
       x <= this.x + this.width + deviationX &&
-      y <= this.y + this.height && this.visible && databus.currentMj === null)
+      y <= this.y + this.height && this.visible && databus.currentMj === null && databus.myRound)
   }
 
   /**
@@ -340,6 +340,51 @@ export default class MaJiang extends Sprite {
       'touchend',
       this.touchendHandler
     )
+  }
+
+  blink() {
+    const time = Date.now()    
+    let interval = setInterval(() => {
+      this.visible = !this.visible
+      if (Date.now() - time >= 1000) {
+        clearInterval(interval)
+        this.visible = false
+      }
+    }, 100)
+  }
+  moveBlink(step, direction, blink) {
+    const time = Date.now()
+    let x = this.width * step
+    let y = this.height * PLAYER_HEIGHT_RATE * step
+    var si = setInterval(() => {
+      if (direction === 'left') {
+        this.x -= x / 10
+      } else if (direction === 'right') {
+        this.x += x / 10
+      } else if (direction === 'up') {
+        this.y -= y / 10
+      } else if (direction === 'down') {
+        this.y += y / 10
+      }
+      if (Date.now() - time >= 1000) {
+        clearInterval(si)
+        if (blink) {
+          this.blink()
+        } else {
+          this.ex_x = this.x
+          this.ex_y = this.y 
+          if (direction === 'left') {
+            this.col -= step
+          } else if (direction === 'right') {
+            this.col += step
+          } else if (direction === 'up') {
+            this.row -= step
+          } else if (direction === 'down') {
+            this.row += step
+          }
+        }
+      }
+    }, 100)
   }
 
 }

@@ -98,6 +98,7 @@ export default class Main {
     )
   }
 
+  //单人模式开始游戏
   startGame() {
     databus.mjArr.forEach(item => { item.removeEvent() })
     databus.reset()
@@ -120,7 +121,39 @@ export default class Main {
     }
     databus.mjArr = databus.mjArr.reverse()
   }
+  //对战模式开始游戏
+  startDoubleGame(majiangArr) {
+    databus.mjArr.forEach(item => { item.removeEvent() })
+    databus.reset()
 
+    this.music = new Music()
+    this.music.playBegin()
+
+    if (majiangArr && majiangArr.length > 0) {
+      majiangArr.forEach(item => {
+        let value = item.value
+        let count = item.count
+        databus.mjArr.push(new MaJiang({ value, count }))
+      })
+    } else {
+      let indexArr = [{ value: 1, count: 4 }, { value: 2, count: 4 }, { value: 3, count: 4 }, { value: 4, count: 4 }, { value: 5, count: 4 }, { value: 6, count: 4 }, { value: 7, count: 4 }, { value: 8, count: 4 }, { value: 9, count: 4 }, { value: 10, count: 4 }, { value: 11, count: 4 }, { value: 12, count: 4 }, { value: 13, count: 4 }, { value: 14, count: 4 }, { value: 15, count: 4 }, { value: 16, count: 4 }, { value: 17, count: 4 }, { value: 18, count: 4 }, { value: 19, count: 4 }, { value: 20, count: 4 }, { value: 21, count: 4 }, { value: 22, count: 4 }, { value: 23, count: 4 }, { value: 24, count: 4 }, { value: 25, count: 4 }, { value: 26, count: 4 }, { value: 27, count: 4 }]
+      //初始化棋盘
+      let count = 108
+      while (count > 0) {
+        let index = Math.floor(Math.random() * indexArr.length)
+        let value = indexArr[index].value
+        indexArr[index].count--;
+        if (indexArr[index].count === 0) {
+          indexArr.splice(index, 1)
+        }
+        databus.mjArr.push(new MaJiang({ value, count }))
+        databus.dbMjArr.push({ 'value': value, 'count': count })
+        count--
+      }
+      databus.mjArr = databus.mjArr.reverse()
+      databus.dbMjArr = databus.dbMjArr.reverse()
+    }
+  }
 
 
   // 重新开始的触摸事件处理逻辑
@@ -174,14 +207,14 @@ export default class Main {
         databus.playModel = 'Double'
         databus.doubleType = 0
       }
-    } else if (databus.playModel === 'Double') {      
+    } else if (databus.playModel === 'Double') {
       //socket.io
       if (!databus.socket) {
         databus.socket = wxappIo('ws://127.0.0.1:7001')
       }
       const socket = databus.socket
       //加入房间
-      if (x >= screenWidth * 0.2 && x <= screenWidth * 0.2 + 120 && y >= screenHeight - 90 && y <= screenHeight - 60) {
+      if (x >= screenWidth * 0.2 && x <= screenWidth * 0.2 + 120 && y >= screenHeight - 90 && y <= screenHeight - 60 && databus.doubleType === 0) {
         databus.doubleType = 1
         databus.keyboard = true
         wx.showKeyboard({ defaultValue: '', maxLength: 5, multipl: false, confirmHold: true, confirmType: 'done' })
@@ -212,28 +245,20 @@ export default class Main {
       }
 
       //创建房间
-      else if (x >= screenWidth * 0.8 - 120 && x <= screenWidth * 0.8 && y >= screenHeight - 90 && y <= screenHeight - 60) {
+      else if (x >= screenWidth * 0.8 - 120 && x <= screenWidth * 0.8 && y >= screenHeight - 90 && y <= screenHeight - 60 && databus.doubleType === 0) {
         socket.emit('buildroom', databus.selfImageUrl, databus.selfNickName)
         socket.on('buildroomres', msg => {
           databus.doubleType = 2
           databus.roomNumber = msg
-          databus.player1 = { 'ready': false, 'selfImageUrl': databus.selfImageUrl, 'selfNickName': databus.selfNickName}
+          databus.player1 = { 'ready': false, 'selfImageUrl': databus.selfImageUrl, 'selfNickName': databus.selfNickName }
 
           socket.on('waitForJoin', rsp => {
-            console.log(rsp)
             databus.player2 = { 'ready': rsp.ready, 'selfImageUrl': rsp.selfImageUrl, 'selfNickName': rsp.selfNickName }
           })
 
           socket.on('waitForReady', rsp => {
-            console.log('ready')
             databus.player2.ready = true
-            if (databus.player1.ready){
-              this.startGame()
-            }
           })
-
-          //模拟玩家2  todo
-          // databus.player2 = { 'ready': true, 'selfImageUrl': databus.selfImageUrl, 'selfNickName': '666'}
         });
 
 
@@ -248,18 +273,76 @@ export default class Main {
           databus.playModel = 'Index'
         } else if (databus.doubleType > 0) {
           if (databus.doubleType === 2) {
-            socket.emit('leaveroom', databus.roomNumber);            
+            socket.emit('leaveroom', databus.roomNumber);
           }
           databus.doubleType = 0
         }
       }
       //对战模式【准备】
-      else if (x >= screenWidth / 2 - 40 && x <= screenWidth / 2 + 40 && y >= screenHeight / 2 - 20 && y <= screenHeight / 2 + 20 && databus.doubleType === 2 && !databus.player1['ready']){
+      else if (x >= screenWidth / 2 - 40 && x <= screenWidth / 2 + 40 && y >= screenHeight / 2 - 20 && y <= screenHeight / 2 + 20 && databus.doubleType === 2 && !databus.player1['ready']) {
         databus.player1['ready'] = true
-        if (databus.player2.ready){
-          this.startGame()
+        if (databus.player2.ready) {
+          this.startDoubleGame()
+        } else {
+          socket.on('waitForStart', rsp => {
+            this.startDoubleGame(rsp.dbMjArr)
+            databus.doubleType = 3
+            databus.player2.ready = true
+            databus.myRound = false//对手先动
+            //等待我的回合
+            socket.on('myround', rsp => {
+              databus.myRound = true
+              databus.dyadicArr = rsp.dyadicArr
+              //模拟对手动作
+              if (rsp.movePath.step === 0) {//闪烁消失
+                databus.mjArr.forEach(mj => {
+                  if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                    mj.blink()
+                  } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                    mj.blink()
+                  }
+                })
+              } else if (rsp.movePath.counts === "0") {
+                databus.mjArr.forEach(mj => {
+                  if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                    mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                  } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                    setTimeout(() => { mj.blink() }, 1000)
+                  }
+                })
+              } else if (rsp.movePath.counts > 0) {
+                let i = 1
+                while (i <= rsp.movePath.counts) {
+                  let row = rsp.movePath.start.row
+                  let col = rsp.movePath.start.col
+                  if (rsp.movePath.move === 'left') {
+                    col -= i
+                  } else if (rsp.movePath.move === 'right') {
+                    col += i
+                  } else if (rsp.movePath.move === 'up') {
+                    row -= i
+                  } else if (rsp.movePath.move === 'down') {
+                    row += i
+                  }
+                  databus.mjArr.forEach(mj => {
+                    if (mj.visible && mj.col === col && mj.row === row) {
+                      mj.moveBlink(rsp.movePath.step, rsp.movePath.move, false)
+                    }
+                  })
+                  i++
+                }
+                databus.mjArr.forEach(mj => {
+                  if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                    mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                  } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                    setTimeout(() => { mj.blink() }, 1000)
+                  }
+                })
+              }         
+            })
+          })
         }
-        socket.emit('readygame', databus.roomNumber)
+        socket.emit('readygame', databus.roomNumber, databus.dbMjArr)
       }
     }
   }
@@ -355,7 +438,6 @@ export default class Main {
     databus.scorelist.forEach(item => {
       item.update()
     })
-
   }
   // 实现游戏帧循环
   loop() {

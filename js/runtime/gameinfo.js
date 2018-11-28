@@ -59,11 +59,11 @@ export default class GameInfo {
 
     } else if (databus.playModel === 'Double') {
       this.renderBack(ctx)
-      if (databus.doubleType === 0 || databus.doubleType === 1) {//加入房间
+      if (databus.doubleType === 0 || databus.doubleType === 1) {//等待加入房间
         this.renderDouble(ctx)
-      } else if (databus.doubleType === 2){//创建房间
+      } else if (databus.doubleType === 2 || databus.doubleType === 3) {//已加入房间|开始游戏
         this.renderDoubleRoom(ctx)
-      }
+      } 
     }
 
     if (databus.errorInfo !== ''){
