@@ -59,10 +59,13 @@ export default class GameInfo {
 
     } else if (databus.playModel === 'Double') {
       this.renderBack(ctx)
-      if (databus.doubleType === 0 || databus.doubleType === 1) {//等待加入房间
+      if (databus.doubleType === 0) {//等待加入房间
         this.renderDouble(ctx)
-      } else if (databus.doubleType === 2 || databus.doubleType === 3) {//已加入房间|开始游戏
+      } else if (databus.doubleType === 1) {//已加入房间|开始游戏
         this.renderDoubleRoom(ctx)
+        if (databus.confirmLeaveRoom){//确认离开房间对话框
+          this.renderConfirmLeave(ctx)
+        }
       } 
     }
 
@@ -124,7 +127,7 @@ export default class GameInfo {
   }
   //游戏结束
   renderGameOver(ctx, score, time) {
-    ctx.drawImage(atlas, 0, 0, 119, 108, screenWidth / 2 - 150, screenHeight / 2 - 150, 300, 300)
+    ctx.drawImage(atlas, 0, 0, 118, 106, screenWidth / 2 - 150, screenHeight / 2 - 150, 300, 300)
 
     ctx.fillStyle = "#ffffff"
     ctx.font = "20px Arial"
@@ -193,9 +196,28 @@ export default class GameInfo {
       ctx.fillStyle = "#fff"
       ctx.textAlign = "right"
       ctx.fillText(databus.player2['selfNickName'], screenWidth - 118 , 30, 120) 
-      if (databus.player1['ready'] && databus.player2['ready']){//游戏开始
+      
+      if (databus.player1['ready'] && databus.player2['ready']) {//游戏开始
+        if(databus.playerIsLeave){//对方逃跑
+          this.renderLeaveTips(ctx)
+        }
+        //得分
+        ctx.font = "24px Arial"
+        ctx.fillStyle = "#fff"
+        ctx.textAlign = "left"
+        ctx.fillText(databus.player1.score, 120, 60)
+        ctx.textAlign = "right"
+        ctx.fillText(databus.player2.score, screenWidth - 118, 60)     
+        //倒计时
+        ctx.font = "48px Arial"
+        if (databus.myRound) {
+          ctx.fillStyle = "#fff"
+        } else {
+          ctx.fillStyle = "#000"
+        }
+        ctx.textAlign = "center"
+        ctx.fillText(databus.getCountDown(), screenWidth / 2, 55)
 
-        
       }else{//准备阶段
         if (databus.player1['ready']) {
           ctx.fillStyle = "#e0c410"
@@ -229,6 +251,102 @@ export default class GameInfo {
       ctx.fillText('请等待玩家', screenWidth / 2, screenHeight / 2 + 24)
     }
 
+  }
+  //离开确认框
+  renderConfirmLeave(ctx) {
+    ctx.drawImage(atlas, 268, 126, 115, 85, screenWidth / 2 - 200 , screenHeight / 2 - 100, 400, 200)
+    ctx.fillStyle = "#000"
+    ctx.font = "30px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText(
+      '确认离开',
+      screenWidth / 2,
+      screenHeight / 2
+    )
+
+    ctx.drawImage(
+      atlas,
+      120, 6, 39, 24,
+      screenWidth / 2 - 150,
+      screenHeight / 2 - 100 + 130,
+      120, 40
+    )
+    ctx.drawImage(
+      atlas,
+      120, 6, 39, 24,
+      screenWidth / 2 + 30,
+      screenHeight / 2 - 100 + 130,
+      120, 40
+    )
+    ctx.font = "20px Arial"
+    ctx.fillStyle = "#fff"
+    ctx.fillText(
+      '确定',
+      screenWidth / 2 - 90,
+      screenHeight / 2 - 100 + 155
+    )
+    ctx.fillText(
+      '取消',
+      screenWidth / 2 + 90,
+      screenHeight / 2 - 100 + 155
+    )
+
+    this.btnLeaveYes = {
+      startX: screenWidth / 2 - 150,
+      startY: screenHeight / 2 - 100 + 130,
+      endX: screenWidth / 2 - 20,
+      endY: screenHeight / 2 - 100 + 180
+    }
+    this.btnLeaveNo = {
+      startX: screenWidth / 2 + 20,
+      startY: screenHeight / 2 - 100 + 130,
+      endX: screenWidth / 2 + 150,
+      endY: screenHeight / 2 - 100 + 180
+    }
+  }
+  //提示对方已经离开游戏
+  renderLeaveTips(ctx) {
+    ctx.drawImage(atlas, 0, 0, 118, 106, screenWidth / 2 - 150, screenHeight / 2 - 150, 300, 300)
+
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "20px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText(
+      '游戏胜利',
+      screenWidth / 2,
+      screenHeight / 2 - 100
+    )
+
+    ctx.fillText(
+      '对方已落荒而逃' ,
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 80
+    )
+
+    ctx.drawImage(
+      atlas,
+      120, 6, 39, 24,
+      screenWidth / 2 - 60,
+      screenHeight / 2 - 100 + 130,
+      120, 40
+    )
+
+    ctx.fillText(
+      '确定',
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 155
+    )
+
+    /**
+     * 重新开始按钮区域
+     * 方便简易判断按钮点击
+     */
+    this.gameoverArea = {
+      startX: screenWidth / 2 - 40,
+      startY: screenHeight / 2 - 100 + 130,
+      endX: screenWidth / 2 + 50,
+      endY: screenHeight / 2 - 100 + 180
+    }
   }
   //排行榜
   renderRankList(ctx) {

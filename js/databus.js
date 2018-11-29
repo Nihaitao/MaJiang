@@ -18,7 +18,7 @@ export default class DataBus {
     this.pool = new Pool()
 
     this.playModel = ''
-    this.doubleType = 0
+    this.doubleType = 0 //0：对战模式首页 1:创建房间/加入房间成功页
     this.keyboard = false
     this.errorInfo = ''
     this.selfImageUrl = ''
@@ -33,6 +33,9 @@ export default class DataBus {
   }
 
   reset() {
+    if (this.mjArr && this.mjArr.length > 0) {
+      this.mjArr.forEach(item => { item.removeEvent() })
+    }
     this.mjArr = []
     this.dyadicArr = new Array()
     for (var i = 0; i < 6; i++) { //一维长度为5
@@ -55,10 +58,17 @@ export default class DataBus {
     this.SaveTheScore = false
     this.myRound = true
     this.duizi = []
-    // this.doubleType = 0
-    // this.player1 = {}
-    // this.player2 = {}
-    // this.roomNumber = ''
+  }
+
+  resetDouble() {
+    this.reset()
+    this.player1 = {}
+    this.player2 = {}
+    this.dbMjArr = []
+    this.doubleType = 0
+    this.confirmLeaveRoom = false
+    this.playerIsLeave = false
+    this.roomNumber = ''
   }
 
   /**
@@ -492,10 +502,12 @@ export default class DataBus {
       }
       this.touchmove = null
 
-      if (!mj.visible) {        
+      if (!mj.visible) {
         music.eatMaJiang()
         this.score(mj.Identification)
-        this.noticeOther(movePath)
+        if (this.playModel === 'Double') {
+          this.noticeOther(movePath)
+        }
       } else {
         music.goBack()
       }
@@ -505,59 +517,65 @@ export default class DataBus {
 
   noticeOther(movePath) {
     //通知对手回合
-    this.socket.emit('nextround', this.roomNumber, movePath, this.dyadicArr)
+    this.socket.emit('nextround', this.roomNumber, movePath, this.dyadicArr, this.totalScore)
     this.myRound = false
+    this.startTime = Date.now()
 
-    if (!this.socket._callbacks.$myround){// 防止重复监听
+    if (!this.socket._callbacks.$myround) {// 防止重复监听
       //等待我的回合
       this.socket.on('myround', rsp => {
-        this.myRound = true
         this.dyadicArr = rsp.dyadicArr
+        this.player2.score = rsp.totalScore
         //模拟对手动作
-        if (rsp.movePath.step === 0) {//闪烁消失
-          this.mjArr.forEach(mj => {
-            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-              mj.blink()
-            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-              mj.blink()
-            }
-          })
-        } else if (rsp.movePath.counts === "0") {
-          this.mjArr.forEach(mj => {
-            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-              mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
-            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-              setTimeout(() => { mj.blink() }, 1000)
-            }
-          })
-        } else if (rsp.movePath.counts > 0){
-          let i = 1
-          while (i <= rsp.movePath.counts){
-            let row = rsp.movePath.start.row
-            let col = rsp.movePath.start.col
-            if (rsp.movePath.move === 'left'){
-              col -= i
-            } else if (rsp.movePath.move === 'right'){
-              col += i
-            } else if (rsp.movePath.move === 'up') {
-              row -= i
-            } else if (rsp.movePath.move === 'down') {
-              row += i
+        if (rsp.movePath) {
+          if (rsp.movePath.step === 0) {//闪烁消失
+            this.mjArr.forEach(mj => {
+              if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                mj.blink()
+              } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                mj.blink()
+              }
+            })
+          } else if (rsp.movePath.counts === "0") {
+            this.mjArr.forEach(mj => {
+              if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+              } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                setTimeout(() => { mj.blink() }, 1000)
+              }
+            })
+          } else if (rsp.movePath.counts > 0) {
+            let i = 1
+            while (i <= rsp.movePath.counts) {
+              let row = rsp.movePath.start.row
+              let col = rsp.movePath.start.col
+              if (rsp.movePath.move === 'left') {
+                col -= i
+              } else if (rsp.movePath.move === 'right') {
+                col += i
+              } else if (rsp.movePath.move === 'up') {
+                row -= i
+              } else if (rsp.movePath.move === 'down') {
+                row += i
+              }
+              this.mjArr.forEach(mj => {
+                if (mj.visible && mj.col === col && mj.row === row) {
+                  mj.moveBlink(rsp.movePath.step, rsp.movePath.move, false)
+                }
+              })
+              i++
             }
             this.mjArr.forEach(mj => {
-              if (mj.visible && mj.col === col && mj.row === row) {
-                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, false)
-              } 
+              if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
+                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+              } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
+                setTimeout(() => { mj.blink() }, 1000)
+              }
             })
-            i++
           }
-          this.mjArr.forEach(mj => {
-            if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-              mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
-            } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-              setTimeout(() => { mj.blink() }, 1000)
-            }
-          })
+        } else {//对手超时
+          this.myRound = true
+          this.startTime = Date.now()
         }
       })
     }
@@ -570,7 +588,9 @@ export default class DataBus {
    */
   score(val, doubleEat) {
     let score = this.pool.getItemByClass('score', Score)
-    val = val % 9 || 9
+    if (val >= 0) {
+      val = val % 9 || 9
+    }
 
     if (this.playModel === 'Double') {
 
@@ -604,6 +624,7 @@ export default class DataBus {
         this.totalScore += val
       }
     }
+    this.player1.score = this.totalScore
   }
 
   /**
@@ -644,12 +665,25 @@ export default class DataBus {
       "s+": time.getSeconds(),
       "q+": Math.floor((time.getMonth() + 3) / 3),
       "S": time.getMilliseconds()
-    };
+    }
     if (/(y+)/.test(fmt))
-      fmt = fmt.replace(RegExp.$1, (time.getFullYear() + "").substr(4 - RegExp.$1.length));
+      fmt = fmt.replace(RegExp.$1, (time.getFullYear() + "").substr(4 - RegExp.$1.length))
     for (var k in o)
       if (new RegExp("(" + k + ")").test(fmt))
-        fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
-    return fmt;
+        fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)))
+    return fmt
+  }
+
+  getCountDown() {
+    let time = Math.floor(60 - (Date.now() - this.startTime) / 1000)
+    if (this.myRound) {
+      if (time === 0) {
+        this.score(-10)
+        this.noticeOther()
+      } else if (time === 4) {
+        music.timesUp()
+      }
+    }
+    return time <= 0 ? 0 : time
   }
 }

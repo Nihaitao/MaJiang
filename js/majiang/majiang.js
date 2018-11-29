@@ -268,12 +268,12 @@ export default class MaJiang extends Sprite {
     this.y = disY
   }
 
-  touchstart(e){
+  touchstart(e) {
     e.preventDefault()
     let x = e.touches[0].clientX
     let y = e.touches[0].clientY
     //当前选中的麻将
-    if (this.checkIsFingerOnAir(x, y)) {
+    if (this.checkIsFingerOnAir(x, y)) {   
       this.touched = true
       databus.currentMj = this
       // 获取麻将移动方式
@@ -284,7 +284,7 @@ export default class MaJiang extends Sprite {
     }
   }
 
-  touchmove(e){
+  touchmove(e) {
     e.preventDefault()
     let x = e.touches[0].clientX
     let y = e.touches[0].clientY
@@ -304,8 +304,12 @@ export default class MaJiang extends Sprite {
     }
     this.currentMoving = ''
     this.touched = false
-    this.x = this.ex_x
-    this.y = this.ex_y
+
+    if (databus.myRound) {
+      this.x = this.ex_x
+      this.y = this.ex_y
+
+    }
   }
 
   /**
@@ -349,6 +353,9 @@ export default class MaJiang extends Sprite {
       if (Date.now() - time >= 1000) {
         clearInterval(interval)
         this.visible = false
+        //我的回合开始
+        databus.myRound = true
+        databus.startTime = Date.now()
       }
     }, 100)
   }
@@ -371,16 +378,18 @@ export default class MaJiang extends Sprite {
         if (blink) {
           this.blink()
         } else {
-          this.ex_x = this.x
-          this.ex_y = this.y 
           if (direction === 'left') {
             this.col -= step
+            this.ex_x -= x
           } else if (direction === 'right') {
             this.col += step
+            this.ex_x += x
           } else if (direction === 'up') {
             this.row -= step
+            this.ex_y -= y 
           } else if (direction === 'down') {
             this.row += step
+            this.ex_y += y 
           }
         }
       }

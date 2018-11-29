@@ -27,6 +27,10 @@ export default class Music {
     this.beginAudio = new Audio()
     this.beginAudio.src = 'audio/begin.mp3'
 
+
+    this.timesupAudio = new Audio()
+    this.timesupAudio.src = 'audio/timesup.mp3'
+
     this.playBgm()
 
   }
@@ -50,6 +54,11 @@ export default class Music {
     this.isPlayWin = false
     this.beginAudio.currentTime = 0
     this.beginAudio.play()
+  }
+
+  timesUp(){
+    this.timesupAudio.currentTime = 0
+    this.timesupAudio.play()
   }
 
   playWin(){
