@@ -16,6 +16,10 @@ reStartImg.src = 'images/replay.png'
 let xpImg = new Image()
 xpImg.src = 'images/xipai.png'
 
+//提示
+let tipImg = new Image()
+tipImg.src = 'images/tips.png'
+
 
 //返回
 let backImg = new Image()
@@ -52,9 +56,13 @@ export default class GameInfo {
         this.renderTime(ctx)
         this.renderTotalScore(ctx)
         this.renderGameStart(ctx)
-        this.renderGameXipai(ctx)
+        // this.renderGameXipai(ctx)
+        this.renderGameTips(ctx)
         this.renderUserinfo(ctx)
         this.renderBack(ctx)
+        if(databus.deadGame){
+          this.renderGameDead(ctx)
+        }
       }
 
     } else if (databus.playModel === 'Double') {
@@ -92,6 +100,10 @@ export default class GameInfo {
   renderGameXipai(ctx) {
     ctx.drawImage(xpImg, screenWidth / 2 + 150, 10, 30, 46)
   }
+  //提示
+  renderGameTips(ctx) {
+    ctx.drawImage(tipImg, screenWidth / 2 + 150, 10, 30, 46)
+  }
   //角色信息
   renderUserinfo(ctx) {
     let roleImg = new Image()
@@ -124,6 +136,50 @@ export default class GameInfo {
     ctx.fillStyle = "#fff"
     ctx.textAlign = "left"
     ctx.fillText(databus.getCurrentTime(), 120, 60)
+  }
+  //死局提示
+  renderGameDead(ctx){
+    ctx.drawImage(atlas, 0, 0, 118, 106, screenWidth / 2 - 150, screenHeight / 2 - 150, 300, 300)
+
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "20px Arial"
+    ctx.textAlign = "center"
+    ctx.fillText(
+      '死局',
+      screenWidth / 2,
+      screenHeight / 2 - 100
+    )
+
+    ctx.fillText(
+      '消耗2000分重新洗牌 ',
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 80
+    )
+
+    ctx.drawImage(
+      atlas,
+      120, 6, 39, 24,
+      screenWidth / 2 - 60,
+      screenHeight / 2 - 100 + 130,
+      120, 40
+    )
+
+    ctx.fillText(
+      '确定',
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 155
+    )
+
+    /**
+     * 重新开始按钮区域
+     * 方便简易判断按钮点击
+     */
+    this.btnXipaiArea = {
+      startX: screenWidth / 2 - 40,
+      startY: screenHeight / 2 - 100 + 130,
+      endX: screenWidth / 2 + 50,
+      endY: screenHeight / 2 - 100 + 205
+    }
   }
   //游戏结束
   renderGameOver(ctx, score, time) {
@@ -198,8 +254,20 @@ export default class GameInfo {
       ctx.fillText(databus.player2['selfNickName'], screenWidth - 118 , 30, 120) 
       
       if (databus.player1['ready'] && databus.player2['ready']) {//游戏开始
-        if(databus.playerIsLeave){//对方逃跑
+        if(databus.gameWin){//游戏结束
+          this.renderDBGameOver(ctx)
+        }else if(databus.playerIsLeave){//对方逃跑
           this.renderLeaveTips(ctx)
+        }else{
+          //倒计时
+          ctx.font = "48px Arial"
+          if (databus.myRound) {
+            ctx.fillStyle = "#fff"
+          } else {
+            ctx.fillStyle = "#000"
+          }
+          ctx.textAlign = "center"
+          ctx.fillText(databus.getCountDown(), screenWidth / 2, 55)
         }
         //得分
         ctx.font = "24px Arial"
@@ -208,15 +276,7 @@ export default class GameInfo {
         ctx.fillText(databus.player1.score, 120, 60)
         ctx.textAlign = "right"
         ctx.fillText(databus.player2.score, screenWidth - 118, 60)     
-        //倒计时
-        ctx.font = "48px Arial"
-        if (databus.myRound) {
-          ctx.fillStyle = "#fff"
-        } else {
-          ctx.fillStyle = "#000"
-        }
-        ctx.textAlign = "center"
-        ctx.fillText(databus.getCountDown(), screenWidth / 2, 55)
+        
 
       }else{//准备阶段
         if (databus.player1['ready']) {
@@ -319,6 +379,60 @@ export default class GameInfo {
 
     ctx.fillText(
       '对方已落荒而逃' ,
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 80
+    )
+
+    ctx.drawImage(
+      atlas,
+      120, 6, 39, 24,
+      screenWidth / 2 - 60,
+      screenHeight / 2 - 100 + 130,
+      120, 40
+    )
+
+    ctx.fillText(
+      '确定',
+      screenWidth / 2,
+      screenHeight / 2 - 100 + 155
+    )
+
+    /**
+     * 重新开始按钮区域
+     * 方便简易判断按钮点击
+     */
+    this.gameoverArea = {
+      startX: screenWidth / 2 - 40,
+      startY: screenHeight / 2 - 100 + 130,
+      endX: screenWidth / 2 + 50,
+      endY: screenHeight / 2 - 100 + 180
+    }
+  }
+
+  renderDBGameOver(ctx) {
+    ctx.drawImage(atlas, 0, 0, 118, 106, screenWidth / 2 - 150, screenHeight / 2 - 150, 300, 300)
+
+    let title = '游戏胜利'
+    let content = '牛逼啊'
+    let dValue = databus.player1.score - databus.player2.score
+    if (dValue < 0){
+      title = '游戏失利'
+      content = '再接再厉'
+    } else if (dValue === 0) {
+      title = '平局'
+      content = '棋逢敌手'
+    }
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "20px Arial"
+    ctx.textAlign = "center"    
+    ctx.fillText(
+      title,
+      screenWidth / 2,
+      screenHeight / 2 - 100
+    )
+
+    ctx.fillText(
+      content,
       screenWidth / 2,
       screenHeight / 2 - 100 + 80
     )

@@ -14,10 +14,22 @@ let ctx = canvas.getContext('2d')
 let databus = new DataBus()
 wx.onHide(() => {
   databus.pauseStartTime = Date.now()
+  if (databus.socket) {
+    if (databus.roomNumber) {
+      databus.socket.emit('hidegame', databus.roomNumber)
+    }
+    databus.socket.disconnect()
+  }
 })
 wx.onShow(() => {
   if (databus.pauseStartTime) {
     databus.pauseTotalTime += (Date.now() - databus.pauseStartTime)
+  }
+  if (databus.socket) {
+    databus.socket.connect()
+    if (databus.roomNumber) {
+      databus.socket.emit('showgame', databus.roomNumber)
+    }
   }
 })
 
@@ -27,7 +39,6 @@ wx.onShow(() => {
  */
 export default class Main {
   constructor() {
-
     wx.getSetting({
       success: res => {
         if (res.authSetting['scope.userInfo']) {
@@ -162,15 +173,6 @@ export default class Main {
     let y = e.touches[0].clientY
 
 
-    if (databus.gameWin) {
-      let area = this.gameInfo.btnArea
-
-      if (x >= area.startX
-        && x <= area.endX
-        && y >= area.startY
-        && y <= area.endY)
-        this.startGame()
-    }
 
     //点击事件
     if (databus.playModel === 'Single') {//单人模式
@@ -180,12 +182,30 @@ export default class Main {
       }
       //洗牌
       else if (x >= screenWidth / 2 + 150 && x <= screenWidth / 2 + 180 && y >= 10 && y <= 56) {
-        this.xipai()
+        // databus.xipai()
+        databus.tip()
       }
       //返回主页
       else if (x >= 0 && x <= 30 && y >= 0 && y <= 30) {
         databus.playModel = 'Index'
         databus.reset()
+      }
+      //游戏结束
+      if (databus.gameWin) {
+        let area = this.gameInfo.btnArea
+
+        if (x >= area.startX
+          && x <= area.endX
+          && y >= area.startY
+          && y <= area.endY)
+          this.startGame()
+      }
+      //游戏死局
+      if (databus.deadGame) {
+        let area = this.gameInfo.btnXipaiArea
+        if (x >= area.startX && x <= area.endX && y >= area.startY && y <= area.endY) {
+          databus.xipaiAlive()
+        }
       }
     } else if (databus.playModel === 'Index') {//首页
       //排行榜
@@ -209,7 +229,8 @@ export default class Main {
     } else if (databus.playModel === 'Double') {
       //socket.io
       if (!databus.socket) {
-        databus.socket = wxappIo('https://www.20180905.cn/mj/')
+        databus.socket = wxappIo('wss://www.20180905.cn')
+        // databus.socket = wxappIo('ws://127.0.0.1:7001')
       }
       const socket = databus.socket
       //加入房间
@@ -232,7 +253,7 @@ export default class Main {
               } else if (rsp.msg === 'fail') {
                 databus.errorInfo = '没有找到相应房间'
                 setTimeout(() => { databus.errorInfo = '' }, 1000)
-              } else if (rsp.msg === 'full'){
+              } else if (rsp.msg === 'full') {
                 databus.errorInfo = '房间已满'
                 setTimeout(() => { databus.errorInfo = '' }, 1000)
               } else {
@@ -335,25 +356,29 @@ export default class Main {
               //等待我的回合
               if (!socket._callbacks.$myround) {
                 socket.on('myround', rsp => {
+                  if (databus.myRound) {//如果本身是自己回合，跳出
+                    return
+                  }
                   console.log('轮到我了')
                   databus.dyadicArr = rsp.dyadicArr
                   databus.player2.score = rsp.totalScore
+                  const lag = rsp.lag || 0
                   if (rsp.movePath) {
                     //模拟对手动作
                     if (rsp.movePath.step === 0) {//闪烁消失
                       databus.mjArr.forEach(mj => {
                         if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                          mj.blink()
+                          mj.blink(lag)
                         } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                          mj.blink()
+                          mj.blink(lag)
                         }
                       })
                     } else if (rsp.movePath.counts === "0") {
                       databus.mjArr.forEach(mj => {
                         if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                          mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                          mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true, lag)
                         } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                          setTimeout(() => { mj.blink() }, 1000)
+                          setTimeout(() => { mj.blink(lag) }, 1000)
                         }
                       })
                     } else if (rsp.movePath.counts > 0) {
@@ -379,9 +404,9 @@ export default class Main {
                       }
                       databus.mjArr.forEach(mj => {
                         if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                          mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                          mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true, lag)
                         } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                          setTimeout(() => { mj.blink() }, 1000)
+                          setTimeout(() => { mj.blink(lag) }, 1000)
                         }
                       })
                     }
@@ -389,6 +414,24 @@ export default class Main {
                     databus.myRound = true
                     databus.startTime = Date.now()
                   }
+
+                  //判断是否死局
+                  setTimeout(() => {
+                    if (databus.testingGameDead()) {
+                      //自动洗牌
+                      databus.totalScore += 2000 //调用单机模式接口
+                      databus.xipaiAlive()
+                      //通知对方洗牌成功
+                      socket.emit('shuffleGame', databus.roomNumber, databus.dyadicArr)
+                    }
+                  }, 2001)
+                })
+              }
+              //监听对方是否洗牌
+              if (!socket._callbacks.$shuffle) {
+                socket.on('shuffle', rsp => {
+                  databus.dyadicArr = rsp.dyadicArr
+                  databus.shuffle()
                 })
               }
             })
@@ -427,39 +470,8 @@ export default class Main {
           databus.resetDouble()
         }
       }
-    }
-  }
 
-  //重新洗牌
-  xipai() {
-
-    if (databus.totalScore < 2000)
-      return
-    databus.totalScore -= 2000
-    let arr = []
-    for (let i = 0; i < databus.dyadicArr.length; i++) {
-      for (let j = 0; j < databus.dyadicArr[i].length; j++) {
-        if (databus.dyadicArr[i][j] > 0) {
-          arr.push(databus.dyadicArr[i][j])
-        }
-      }
     }
-    for (let i = 0; i < databus.dyadicArr.length; i++) {
-      for (let j = 0; j < databus.dyadicArr[i].length; j++) {
-        if (databus.dyadicArr[i][j] > 0) {
-          let index = Math.floor(Math.random() * arr.length)
-          databus.dyadicArr[i][j] = arr[index]
-          arr.splice(index, 1)
-        }
-      }
-    }
-
-    databus.mjArr.forEach(item => {
-      if (item.visible) {
-        item.img.src = `images/${databus.dyadicArr[item.row][item.col]}.png`
-        item.Identification = databus.dyadicArr[item.row][item.col]
-      }
-    })
   }
 
   /**

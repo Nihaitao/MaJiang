@@ -346,7 +346,7 @@ export default class MaJiang extends Sprite {
     )
   }
 
-  blink() {
+  blink(lag) {
     const time = Date.now()    
     let interval = setInterval(() => {
       this.visible = !this.visible
@@ -355,11 +355,11 @@ export default class MaJiang extends Sprite {
         this.visible = false
         //我的回合开始
         databus.myRound = true
-        databus.startTime = Date.now()
+        databus.startTime = Date.now() - lag
       }
     }, 100)
   }
-  moveBlink(step, direction, blink) {
+  moveBlink(step, direction, blink, lag) {
     const time = Date.now()
     let x = this.width * step
     let y = this.height * PLAYER_HEIGHT_RATE * step
@@ -376,7 +376,7 @@ export default class MaJiang extends Sprite {
       if (Date.now() - time >= 1000) {
         clearInterval(si)
         if (blink) {
-          this.blink()
+          this.blink(lag)
         } else {
           if (direction === 'left') {
             this.col -= step
@@ -392,6 +392,18 @@ export default class MaJiang extends Sprite {
             this.ex_y += y 
           }
         }
+      }
+    }, 100)
+  }
+
+  tips() {
+    const time = Date.now()    
+    let interval = setInterval(() => {
+      this.visible = !this.visible
+      if (Date.now() - time >= 1000) {
+        clearInterval(interval)
+        this.visible = true
+        databus.myRound = true
       }
     }, 100)
   }

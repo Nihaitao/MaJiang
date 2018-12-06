@@ -58,6 +58,10 @@ export default class DataBus {
     this.SaveTheScore = false
     this.myRound = true
     this.duizi = []
+    this.tips = []
+    this.deadGame = false
+    this.confirmLeaveRoom = false
+    this.playerIsLeave = false
   }
 
   resetDouble() {
@@ -66,8 +70,6 @@ export default class DataBus {
     this.player2 = {}
     this.dbMjArr = []
     this.doubleType = 0
-    this.confirmLeaveRoom = false
-    this.playerIsLeave = false
     this.roomNumber = ''
   }
 
@@ -519,29 +521,33 @@ export default class DataBus {
     //通知对手回合
     this.socket.emit('nextround', this.roomNumber, movePath, this.dyadicArr, this.totalScore)
     this.myRound = false
-    this.startTime = Date.now()
+    this.startTime = Date.now() + 1000
 
     if (!this.socket._callbacks.$myround) {// 防止重复监听
       //等待我的回合
       this.socket.on('myround', rsp => {
+        if (databus.myRound) {//如果本身是自己回合，跳出
+          return
+        }
         this.dyadicArr = rsp.dyadicArr
         this.player2.score = rsp.totalScore
+        const lag = rsp.lag || 0
         //模拟对手动作
         if (rsp.movePath) {
           if (rsp.movePath.step === 0) {//闪烁消失
             this.mjArr.forEach(mj => {
               if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                mj.blink()
+                mj.blink(lag)
               } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                mj.blink()
+                mj.blink(lag)
               }
             })
           } else if (rsp.movePath.counts === "0") {
             this.mjArr.forEach(mj => {
               if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true, lag)
               } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                setTimeout(() => { mj.blink() }, 1000)
+                setTimeout(() => { mj.blink(lag) }, 1000)
               }
             })
           } else if (rsp.movePath.counts > 0) {
@@ -567,20 +573,37 @@ export default class DataBus {
             }
             this.mjArr.forEach(mj => {
               if (mj.visible && mj.col === rsp.movePath.start.col && mj.row === rsp.movePath.start.row) {
-                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true)
+                mj.moveBlink(rsp.movePath.step, rsp.movePath.move, true, lag)
               } else if (mj.visible && mj.col === rsp.movePath.end.col && mj.row === rsp.movePath.end.row) {
-                setTimeout(() => { mj.blink() }, 1000)
+                setTimeout(() => { mj.blink(lag) }, 1000)
               }
             })
           }
         } else {//对手超时
           this.myRound = true
-          this.startTime = Date.now()
+          this.startTime = Date.now() - (rsp.lag || 0)
         }
+
+        //判断是否死局
+        setTimeout(() => {
+          if (this.testingGameDead()) {
+            //自动洗牌
+            this.totalScore += 2000 //调用单机模式接口
+            this.xipaiAlive()
+            //通知对方洗牌成功
+            this.socket.emit('shuffleGame', this.roomNumber, this.dyadicArr)
+          }
+        }, 2001)
       })
     }
 
-
+    //监听对方是否洗牌
+    if (!this.socket._callbacks.$shuffle) {
+      this.socket.on('shuffle', rsp => {
+        this.dyadicArr = rsp.dyadicArr
+        this.shuffle()
+      })
+    }
   }
 
   /**
@@ -625,6 +648,12 @@ export default class DataBus {
       }
     }
     this.player1.score = this.totalScore
+
+    if (this.playModel === 'Single') {//单人模式每次得分后判断是否死局
+      if (this.testingGameDead() && !this.gameWin) {
+        this.deadGame = true
+      }
+    }
   }
 
   /**
@@ -655,6 +684,7 @@ export default class DataBus {
     return minute + ':' + second
   }
 
+  // 格式化时间
   timeFormat(fmt, times) {
     var time = new Date(times)
     var o = {
@@ -674,6 +704,7 @@ export default class DataBus {
     return fmt
   }
 
+  //获取倒计时
   getCountDown() {
     let time = Math.floor(60 - (Date.now() - this.startTime) / 1000)
     if (this.myRound) {
@@ -683,7 +714,334 @@ export default class DataBus {
       } else if (time === 4) {
         music.timesUp()
       }
+    }else{
+      if (time === -5){//大约最多5s左右延迟,此时判定对方离开而超时
+        this.overtime ++
+        if (this.overtime === 3){
+          this.playerIsLeave = true
+        }
+        this.myRound = true
+        this.player2.score -= 10
+        this.startTime = Date.now()
+      }
     }
     return time <= 0 ? 0 : time
+  }
+
+  //死局检测
+  testingGameDead() {
+    this.tips = []
+    for (let i = 0; i < this.dyadicArr.length; i++) {
+      for (let j = 0; j < this.dyadicArr[i].length; j++) {
+        if (this.dyadicArr[i][j] > 0) {
+          if (!this.testingFn(i - 1, j, 'up', i, j) || !this.testingFn(i + 1, j, 'down', i, j) || !this.testingFn(i, j - 1, 'left', i, j) || !this.testingFn(i, j + 1, 'right', i, j)) {
+            // console.table(this.tips)
+            return false
+          }
+        }
+      }
+    }
+    return true
+  }
+
+  //死局检测函数
+  testingFn(row, col, direction, i, j) {
+    let ob = { touch: false, firstEmpty: false, step: 0 }
+    if (direction === 'up') {
+      mainLoop:
+      while (row >= 0) {
+        let res = this.testingTouchFn(row, col, direction, i, j, ob)//检测目标在空位置的行/列有无可吃对象
+        if (res === 1) {
+          break mainLoop
+        } else if (res === -1) {
+          return false
+        }
+        row--
+      }
+      while (ob.step > 0) {//检测目标带着麻将群体移动可移动距离内的行/列有无可吃对象
+        let colLeft = col - 1
+        subLoop1:
+        while (colLeft > 0) {
+          let res = this.testingEatingFn(i - ob.step, colLeft, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop1
+          }
+          colLeft--
+        }
+        let colRight = col + 1
+        subLoop2:
+        while (colRight <= 17) {
+          let res = this.testingEatingFn(i - ob.step, colRight, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop2
+          }
+          colRight++
+        }
+        ob.step--
+      }
+    } else if (direction === 'down') {
+      mainLoop:
+      while (row <= 5) {
+        let res = this.testingTouchFn(row, col, direction, i, j, ob)//检测目标在空位置的行/列有无可吃对象
+        if (res === 1) {
+          break mainLoop
+        } else if (res === -1) {
+          return false
+        }
+        row++
+      }
+      while (ob.step > 0) {//检测目标带着麻将群体移动可移动距离内的行/列有无可吃对象
+        let colLeft = col - 1
+        subLoop1:
+        while (colLeft > 0) {
+          let res = this.testingEatingFn(i + ob.step, colLeft, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop1
+          }
+          colLeft--
+        }
+        let colRight = col + 1
+        subLoop2:
+        while (colRight <= 17) {
+          let res = this.testingEatingFn(i + ob.step, colRight, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop2
+          }
+          colRight++
+        }
+        ob.step--
+      }
+    } else if (direction === 'left') {
+      mainLoop:
+      while (col >= 0) {
+        let res = this.testingTouchFn(row, col, direction, i, j, ob)//检测目标在空位置的行/列有无可吃对象
+        if (res === 1) {
+          break mainLoop
+        } else if (res === -1) {
+          return false
+        }
+        col--
+      }
+      while (ob.step > 0) {//检测目标带着麻将群体移动可移动距离内的行/列有无可吃对象
+        let rowUp = row - 1
+        subLoop1:
+        while (rowUp > 0) {
+          let res = this.testingEatingFn(rowUp, j - ob.step, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop1
+          }
+          rowUp--
+        }
+        let rowDown = row + 1
+        subLoop2:
+        while (rowDown <= 5) {
+          let res = this.testingEatingFn(rowDown, j - ob.step, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop2
+          }
+          rowDown++
+        }
+        ob.step--
+      }
+    } else if (direction === 'right') {
+      mainLoop:
+      while (col <= 17) {
+        let res = this.testingTouchFn(row, col, direction, i, j, ob)//检测目标在空位置的行/列有无可吃对象
+        if (res === 1) {
+          break mainLoop
+        } else if (res === -1) {
+          return false
+        }
+        col++
+      }
+      while (ob.step > 0) {//检测目标带着麻将群体移动可移动距离内的行/列有无可吃对象
+        let rowUp = row - 1
+        subLoop1:
+        while (rowUp > 0) {
+          let res = this.testingEatingFn(rowUp, j + ob.step, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop1
+          }
+          rowUp--
+        }
+        let rowDown = row + 1
+        subLoop2:
+        while (rowDown <= 5) {
+          let res = this.testingEatingFn(rowDown, j + ob.step, i, j)
+          if (res === -1) {
+            return false
+          } else if (res === 1) {
+            break subLoop2
+          }
+          rowDown++
+        }
+        ob.step--
+      }
+    }
+    return true
+  }
+  //死局检测触碰逻辑
+  testingTouchFn(row, col, direction, i, j, ob) {
+    if (this.dyadicArr[row][col] === 0) {//该位置为空位
+      if (!ob.touch) {//之前没有触碰过麻将，检测目标在该位置行/列是否有能吃掉的
+        ob.firstEmpty = true//表示第一次触碰为空位
+        if (direction === 'up' || direction === 'down') {
+          let leftCol = col - 1
+          Loop1:
+          while (leftCol >= 0) {
+            let res = this.testingEatingFn(row, leftCol, i, j)
+            if (res === -1) {
+              return res
+            } else if (res === 1) {
+              break Loop1
+            }
+            leftCol--
+          }
+          let rightCol = col + 1
+          Loop2:
+          while (rightCol <= 17) {
+            let res = this.testingEatingFn(row, rightCol, i, j)
+            if (res === -1) {
+              return res
+            } else if (res === 1) {
+              break Loop2
+            }
+            rightCol++
+          }
+        } else if (direction === 'left' || direction === 'right') {
+          let upRow = row - 1
+          Loop1:
+          while (upRow >= 0) {
+            let res = this.testingEatingFn(upRow, col, i, j)
+            if (res === -1) {
+              return res
+            } else if (res === 1) {
+              break Loop1
+            }
+            upRow--
+          }
+          let downRow = row + 1
+          Loop2:
+          while (downRow <= 5) {
+            let res = this.testingEatingFn(downRow, col, i, j)
+            if (res === -1) {
+              return res
+            } else if (res === 1) {
+              break Loop2
+            }
+            downRow++
+          }
+        }
+      } else if (ob.touch && !ob.firstEmpty) {//第一次触碰就是麻将，目标可移动步数+1      
+        ob.step++
+      }
+    } else {//该位置有麻将
+      if (!ob.touch) {//之前没有触碰过其他麻将
+        if (this.dyadicArr[row][col] === this.dyadicArr[i][j]) {//麻将相同，表示可以吃，没有死局
+          this.tips.push({ row: i, col: j })
+          this.tips.push({ row: row, col: col })
+          return -1
+        } else if (!ob.firstEmpty){//麻将不同，也没走过空位表示第一次触碰了麻将        
+          ob.touch = true
+        }else{
+          return 1
+        }
+      } else if (ob.step > 0 || ob.firstEmpty) {//之前触碰了麻将，可移动步数大于0，表示止步于此。之前走了空位，再次触碰麻将，也止步如此。可移动步数等于0同时没有走过空位，继续执行下一循环逻辑
+        return 1
+      }
+    }
+    return 0
+  }
+
+  //死局检测吃逻辑
+  testingEatingFn(row, col, i, j) {
+    if (this.dyadicArr[row][col] === this.dyadicArr[i][j]) {//检测到一样的，表示可以吃，没有死局
+      this.tips.push({ row: i, col: j })
+      this.tips.push({ row: row, col: col })
+      return -1
+    } else if (this.dyadicArr[row][col] > 0) {//碰到其他麻将了，表示该行/列没有可以吃的，跳出该行/列检测
+      return 1
+    } else {
+      return 0
+    }
+  }
+
+
+  //重新洗牌
+  xipai() {
+    if (this.totalScore < 2000)
+      return
+    this.totalScore -= 2000
+    let arr = []
+    for (let i = 0; i < this.dyadicArr.length; i++) {
+      for (let j = 0; j < this.dyadicArr[i].length; j++) {
+        if (this.dyadicArr[i][j] > 0) {
+          arr.push(this.dyadicArr[i][j])
+        }
+      }
+    }
+    for (let i = 0; i < this.dyadicArr.length; i++) {
+      for (let j = 0; j < this.dyadicArr[i].length; j++) {
+        if (this.dyadicArr[i][j] > 0) {
+          let index = Math.floor(Math.random() * arr.length)
+          this.dyadicArr[i][j] = arr[index]
+          arr.splice(index, 1)
+        }
+      }
+    }
+
+    this.mjArr.forEach(item => {
+      if (item.visible) {
+        item.img.src = `images/${this.dyadicArr[item.row][item.col]}.png`
+        item.Identification = this.dyadicArr[item.row][item.col]
+      }
+    })
+  }
+
+  //洗牌到活局
+  xipaiAlive() {
+    this.xipai()
+    this.deadGame = false
+    if (this.testingGameDead()) {
+      this.totalScore += 2000 //扣除的分数加回来
+      this.xipaiAlive()
+    }
+  }
+  //对战模式洗牌
+  shuffle() {
+    this.mjArr.forEach(item => {
+      if (item.visible) {
+        item.img.src = `images/${this.dyadicArr[item.row][item.col]}.png`
+        item.Identification = this.dyadicArr[item.row][item.col]
+      }
+    })
+  }
+
+  tip() {
+    if (this.totalScore < 200)
+      return
+    this.totalScore -= 200
+    this.myRound = false
+    this.tips.forEach(item=>{
+      this.mjArr.forEach(mj=>{
+        if (mj.visible && item.row === mj.row && item.col === mj.col){
+          mj.tips()
+        }
+      })
+    })
   }
 }
