@@ -71,6 +71,7 @@ export default class DataBus {
     this.dbMjArr = []
     this.doubleType = 0
     this.roomNumber = ''
+    this.overtime = 0
   }
 
   /**
@@ -526,7 +527,7 @@ export default class DataBus {
     if (!this.socket._callbacks.$myround) {// 防止重复监听
       //等待我的回合
       this.socket.on('myround', rsp => {
-        if (databus.myRound) {//如果本身是自己回合，跳出
+        if (this.myRound) {//如果本身是自己回合，跳出
           return
         }
         this.dyadicArr = rsp.dyadicArr
@@ -1031,6 +1032,7 @@ export default class DataBus {
     })
   }
 
+  //提示
   tip() {
     if (this.totalScore < 200)
       return
@@ -1043,5 +1045,58 @@ export default class DataBus {
         }
       })
     })
+  }
+
+
+  //加入房间
+  joinRoom() {
+    this.socket.emit('joinroom', this.roomNumber, this.selfImageUrl, this.selfNickName)
+    if (!this.socket._callbacks.$joinroomres) {
+      this.socket.on('joinroomres', rsp => {
+        if (rsp.msg === 'success') {
+          console.log('我加入了房间')
+          this.doubleType = 1
+          this.player1 = { ready: false, selfImageUrl: this.selfImageUrl, selfNickName: this.selfNickName, score: 0 }
+          this.player2 = { ready: rsp.ready, selfImageUrl: rsp.selfImageUrl, selfNickName: rsp.selfNickName, score: 0 }
+          this.keyboard = false
+          wx.hideKeyboard()
+          wx.offKeyboardConfirm()
+        } else if (rsp.msg === 'fail') {
+          this.errorInfo = '没有找到相应房间'
+          setTimeout(() => { this.errorInfo = '' }, 1500)
+        } else if (rsp.msg === 'full') {
+          this.errorInfo = '房间已满'
+          setTimeout(() => { this.errorInfo = '' }, 1500)
+        } else {
+          this.errorInfo = '网络错误'
+          setTimeout(() => { this.errorInfo = '' }, 1500)
+        }
+      });
+    }
+    if (!this.socket._callbacks.$waitForReady) {
+      this.socket.on('waitForReady', rsp => {
+        console.log('对方准备了')
+        this.player2.ready = true
+      })
+    }
+    if (!this.socket._callbacks.$leave) {
+      this.socket.on('leave', rsp => {
+        if (rsp === 0) {
+          this.player2 = {}
+          this.player1.ready = false
+          console.log('对方离开了房间')
+        } else {
+          console.log('对方逃跑了')
+          this.playerIsLeave = true
+        }
+      })
+    }
+    //对方退出后就成了房主
+    if (!this.socket._callbacks.$waitForJoin) {
+      this.socket.on('waitForJoin', rsp => {
+        console.log('我是新房主，对手加入了房间')
+        this.player2 = { ready: rsp.ready, selfImageUrl: rsp.selfImageUrl, selfNickName: rsp.selfNickName, score: 0 }
+      })
+    }
   }
 }

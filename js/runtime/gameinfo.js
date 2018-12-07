@@ -8,6 +8,22 @@ let databus = new DataBus()
 let indexImg = new Image()
 indexImg.src = 'images/welcome.jpg'
 
+//单人模式
+let singleImg = new Image()
+singleImg.src = 'images/single.png'
+
+//对战模式
+let doubleImg = new Image()
+doubleImg.src = 'images/double.png'
+
+//创建房间
+let createImg = new Image()
+createImg.src = 'images/createroom.png'
+
+//加入房间
+let joinImg = new Image()
+joinImg.src = 'images/joinroom.png'
+
 //重玩
 let reStartImg = new Image()
 reStartImg.src = 'images/replay.png'
@@ -19,7 +35,6 @@ xpImg.src = 'images/xipai.png'
 //提示
 let tipImg = new Image()
 tipImg.src = 'images/tips.png'
-
 
 //返回
 let backImg = new Image()
@@ -45,6 +60,7 @@ export default class GameInfo {
   render(ctx) {
     if (databus.playModel === 'Index') {
       this.renderIndex(ctx)
+      this.renderUser(ctx)
       this.renderRank(ctx)
       if (databus.showRankList) {
         this.renderRankList(ctx)
@@ -76,8 +92,7 @@ export default class GameInfo {
         }
       } 
     }
-
-    if (databus.errorInfo !== ''){
+    if (databus.errorInfo !== '') {
       this.showError(ctx, databus.errorInfo)
     }
   }
@@ -85,16 +100,12 @@ export default class GameInfo {
   //首页面
   renderIndex(ctx) {
     ctx.drawImage(indexImg, screenWidth * 0.1, screenHeight * 0.3, screenWidth * 0.8, screenWidth * 0.8 * 0.16)
-
-    ctx.font = "30px Verdana"
-    ctx.fillStyle = "black"
-    ctx.textAlign = "center"
-    ctx.fillText('单人模式', screenWidth * 0.3, screenHeight - 60)
-    ctx.fillText('对战模式', screenWidth * 0.7, screenHeight - 60)
+    ctx.drawImage(singleImg, screenWidth * 0.5 - 230, screenHeight * 0.75, 180, 60)
+    ctx.drawImage(doubleImg, screenWidth * 0.5 + 50, screenHeight * 0.75, 180, 60)
   }
   //重新开始
   renderGameStart(ctx) {
-    ctx.drawImage(reStartImg, screenWidth / 2 + 100, 10, 30, 46)
+    ctx.drawImage(reStartImg, screenWidth / 2 + 120, 10, 48, 48)
   }
   //洗牌
   renderGameXipai(ctx) {
@@ -102,7 +113,7 @@ export default class GameInfo {
   }
   //提示
   renderGameTips(ctx) {
-    ctx.drawImage(tipImg, screenWidth / 2 + 150, 10, 30, 46)
+    ctx.drawImage(tipImg, screenWidth / 2 + 180, 10, 48, 48)
   }
   //角色信息
   renderUserinfo(ctx) {
@@ -116,12 +127,18 @@ export default class GameInfo {
   }
   //返回主页
   renderBack(ctx) {
-    ctx.drawImage(backImg, 5, 5, 24, 24)
+    ctx.drawImage(backImg, 5, 5, 40, 40)
   }
 
+  //用户
+  renderUser(ctx) {
+    let roleImg = new Image()
+    roleImg.src = databus.selfImageUrl
+    ctx.drawImage(roleImg, 20, 20, 40, 40)
+  }
   //排行榜
   renderRank(ctx) {
-    ctx.drawImage(rankImg, 20, 20, 40, 40)
+    ctx.drawImage(rankImg, 80, 20, 40, 40)
   }
   //得分
   renderTotalScore(ctx) {
@@ -228,11 +245,8 @@ export default class GameInfo {
   //对战模式
   renderDouble(ctx) {
     //对战模式
-    ctx.font = "30px Arial"
-    ctx.fillStyle = "black"
-    ctx.textAlign = "center"
-    ctx.fillText('加入房间', screenWidth * 0.3, screenHeight - 60)
-    ctx.fillText('创建房间', screenWidth * 0.7, screenHeight - 60)
+    ctx.drawImage(joinImg, screenWidth * 0.5 - 230, screenHeight * 0.75, 180, 60)
+    ctx.drawImage(createImg, screenWidth * 0.5 + 50, screenHeight * 0.75, 180, 60)
   }
   //对战模式
   renderDoubleRoom(ctx) {  
@@ -494,12 +508,18 @@ export default class GameInfo {
       ctx.fillText(databus.timeFormat('MM-dd hh:mm', item.time), startX + rankWidth / 4 * 3, Y, rankWidth / 4 - 10)
     })
 
-  }
 
+    ctx.fillStyle = "orange"
+    ctx.font = "16px Arial"
+    ctx.textAlign = "right"
+    ctx.fillText("每周一零点清空", rankWidth + 48, rankHeight + 14)
+
+  }
   showError(ctx, info) {
     ctx.font = "20px Arial"
     ctx.fillStyle = "#fff"
     ctx.textAlign = "center"
     ctx.fillText(info, screenWidth / 2, screenHeight * 0.1)
   }
+
 }

@@ -12,6 +12,7 @@ canvas.width = screenWidth
 canvas.height = screenHeight
 let ctx = canvas.getContext('2d')
 let databus = new DataBus()
+//右上角圆球 退出页面
 wx.onHide(() => {
   databus.pauseStartTime = Date.now()
   if (databus.socket) {
@@ -21,7 +22,8 @@ wx.onHide(() => {
     databus.socket.disconnect()
   }
 })
-wx.onShow(() => {
+//进入页面
+wx.onShow(res => {
   if (databus.pauseStartTime) {
     databus.pauseTotalTime += (Date.now() - databus.pauseStartTime)
   }
@@ -30,6 +32,36 @@ wx.onShow(() => {
     if (databus.roomNumber) {
       databus.socket.emit('showgame', databus.roomNumber)
     }
+  }
+  //分享页面进入
+  if (res.query && res.query.roomNumber && databus.roomNumber !== res.query.roomNumber) {
+    if (!databus.socket) {
+      databus.socket = wxappIo('wss://www.20180905.cn')
+    }
+    databus.roomNumber = res.query.roomNumber + ''
+    databus.playModel = 'Double'
+    databus.doubleType = 0
+    if(databus.selfNickName){
+      databus.joinRoom()
+    }
+  }
+})
+wx.showShareMenu({
+  withShareTicket: true
+})
+//右上角三点 转发
+wx.onShareAppMessage(function () {
+  // console.log("用户点击了“转发”按钮")
+  let query = ""
+  let title = '这个小游戏可牛逼了！'
+  if (databus.roomNumber && !databus.player2.selfNickName) {
+    query = `roomNumber=${databus.roomNumber}`
+    title = '来了老弟，战个痛快啊！'
+  }
+  return {
+    title: title,
+    imageUrl: 'images/19.png',
+    query: query
   }
 })
 
@@ -48,7 +80,11 @@ export default class Main {
               var userInfo = res.userInfo
               databus.selfImageUrl = userInfo.avatarUrl
               databus.selfNickName = userInfo.nickName
-              databus.playModel = 'Index'
+              if (databus.playModel === 'Double') {//直接分享页面进来
+                databus.joinRoom()
+              } else {
+                databus.playModel = 'Index'
+              }
             }
           })
         } else {
@@ -168,25 +204,22 @@ export default class Main {
   // 重新开始的触摸事件处理逻辑
   touchEventHandler(e) {
     e.preventDefault()
-
     let x = e.touches[0].clientX
     let y = e.touches[0].clientY
-
-
 
     //点击事件
     if (databus.playModel === 'Single') {//单人模式
       //重新开始
-      if (x >= screenWidth / 2 + 100 && x <= screenWidth / 2 + 130 && y >= 10 && y <= 56) {
+      if (x >= screenWidth / 2 + 120 && x <= screenWidth / 2 + 160 && y >= 10 && y <= 58) {
         this.startGame()
       }
-      //洗牌
-      else if (x >= screenWidth / 2 + 150 && x <= screenWidth / 2 + 180 && y >= 10 && y <= 56) {
+      //提示
+      else if (x >= screenWidth / 2 + 180 && x <= screenWidth / 2 + 220 && y >= 10 && y <= 58) {
         // databus.xipai()
         databus.tip()
       }
       //返回主页
-      else if (x >= 0 && x <= 30 && y >= 0 && y <= 30) {
+      else if (x >= 0 && x <= 35 && y >= 0 && y <= 35) {
         databus.playModel = 'Index'
         databus.reset()
       }
@@ -208,21 +241,29 @@ export default class Main {
         }
       }
     } else if (databus.playModel === 'Index') {//首页
-      //排行榜
-      if (x >= 10 && x <= 70 && y >= 10 && y <= 70) {
-        if (databus.showRankList) {
-          databus.showRankList = false
-        } else {
-          this.getRankList()
-        }
+      //排行榜隐藏
+      if (databus.showRankList && (x <= screenWidth * 0.1 || x >= screenWidth * 0.9 || y <= 10 || y >= screenHeight - 10)) {
+        databus.showRankList = false
+      }
+      //排行榜显示
+      else if (x >= 70 && x <= 110 && y >= 20 && y <= 60 && !databus.showRankList) {
+        this.getRankList()
+      }
+      //角色信息
+      else if (x >= 20 && x <= 60 && y >= 20 && y <= 60){
+        wx.showToast({
+          title: '敬请期待',
+          icon: 'none',
+          duration: 2000
+        })
       }
       //单人模式
-      else if (x >= screenWidth * 0.2 && x <= screenWidth * 0.2 + 120 && y >= screenHeight - 90 && y <= screenHeight - 60) {
+      else if (x >= screenWidth * 0.5 - 230 && x <= screenWidth * 0.5 - 50 && y >= screenHeight * 0.75 && y <= screenHeight * 0.75 + 60) {
         databus.playModel = 'Single'
         this.startGame()
       }
       //对战模式
-      else if (x >= screenWidth * 0.8 - 120 && x <= screenWidth * 0.8 && y >= screenHeight - 90 && y <= screenHeight - 60) {
+      else if (x >= screenWidth * 0.5 + 50 && x <= screenWidth * 0.5 + 230 && y >= screenHeight * 0.75 && y <= screenHeight * 0.75 + 60) {
         databus.playModel = 'Double'
         databus.doubleType = 0
       }
@@ -234,64 +275,17 @@ export default class Main {
       }
       const socket = databus.socket
       //加入房间
-      if (x >= screenWidth * 0.2 && x <= screenWidth * 0.2 + 120 && y >= screenHeight - 90 && y <= screenHeight - 60 && databus.doubleType === 0) {
+      if (x >= screenWidth * 0.5 - 230 && x <= screenWidth * 0.5 - 50 && y >= screenHeight * 0.75 && y <= screenHeight * 0.75 + 60 && databus.doubleType === 0) {
         databus.keyboard = true
         wx.showKeyboard({ defaultValue: '', maxLength: 5, multipl: false, confirmHold: true, confirmType: 'done' })
         wx.onKeyboardConfirm(cb => {
           databus.roomNumber = cb.value
-          socket.emit('joinroom', cb.value, databus.selfImageUrl, databus.selfNickName)
-          if (!socket._callbacks.$joinroomres) {
-            socket.on('joinroomres', rsp => {
-              if (rsp.msg === 'success') {
-                console.log('我加入了房间')
-                databus.doubleType = 1
-                databus.player1 = { ready: false, selfImageUrl: databus.selfImageUrl, selfNickName: databus.selfNickName, score: 0 }
-                databus.player2 = { ready: rsp.ready, selfImageUrl: rsp.selfImageUrl, selfNickName: rsp.selfNickName, score: 0 }
-                databus.keyboard = false
-                wx.hideKeyboard()
-                wx.offKeyboardConfirm()
-              } else if (rsp.msg === 'fail') {
-                databus.errorInfo = '没有找到相应房间'
-                setTimeout(() => { databus.errorInfo = '' }, 1000)
-              } else if (rsp.msg === 'full') {
-                databus.errorInfo = '房间已满'
-                setTimeout(() => { databus.errorInfo = '' }, 1000)
-              } else {
-                databus.errorInfo = '网络错误'
-                setTimeout(() => { databus.errorInfo = '' }, 1000)
-              }
-            });
-          }
-          if (!socket._callbacks.$waitForReady) {
-            socket.on('waitForReady', rsp => {
-              console.log('对方准备了')
-              databus.player2.ready = true
-            })
-          }
-          if (!socket._callbacks.$leave) {
-            socket.on('leave', rsp => {
-              if (rsp === 0) {
-                databus.player2 = {}
-                databus.player1.ready = false
-                console.log('对方离开了房间')
-              } else {
-                console.log('对方逃跑了')
-                databus.playerIsLeave = true
-              }
-            })
-          }
-          //对方退出后就成了房主
-          if (!socket._callbacks.$waitForJoin) {
-            socket.on('waitForJoin', rsp => {
-              console.log('我是新房主，对手加入了房间')
-              databus.player2 = { ready: rsp.ready, selfImageUrl: rsp.selfImageUrl, selfNickName: rsp.selfNickName, score: 0 }
-            })
-          }
+          databus.joinRoom()
         })
       }
 
       //创建房间
-      else if (x >= screenWidth * 0.8 - 120 && x <= screenWidth * 0.8 && y >= screenHeight - 90 && y <= screenHeight - 60 && databus.doubleType === 0) {
+      else if (x >= screenWidth * 0.5 + 50 && x <= screenWidth * 0.5 + 230 && y >= screenHeight * 0.75 && y <= screenHeight * 0.75 + 60 && databus.doubleType === 0) {
         socket.emit('buildroom', databus.selfImageUrl, databus.selfNickName)
         if (!socket._callbacks.$buildroomres) {
           socket.on('buildroomres', msg => {
@@ -328,7 +322,7 @@ export default class Main {
         }
       }
       //返回
-      else if (x >= 0 && x <= 30 && y >= 0 && y <= 30) {
+      else if (x >= 0 && x <= 45 && y >= 0 && y <= 45) {
         if (databus.keyboard) {
           wx.hideKeyboard()
           wx.offKeyboardConfirm()
@@ -559,12 +553,17 @@ export default class Main {
 
   //获取排行榜
   getRankList() {
-    databus.showRankList = true
+    if (databus.rankList.length === 0) {
+      wx.showLoading()
+    } else {
+      databus.showRankList = true
+    }
     wx.cloud.callFunction({
       name: 'getRankList'
     }).then(res => {
+      wx.hideLoading()
+      databus.showRankList = true
       databus.rankList = res.result.data
     })
   }
-
 }
